@@ -1,0 +1,5812 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#dbeafe">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OTTO">
+
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <title>OTTO • CENTRAL EXECUTIVA</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <style>
+    :root {
+      --texto: #0f172a;
+      --texto-suave: #475569;
+      --branco: #ffffff;
+
+      --azul-700: #1d4ed8;
+      --vermelho-700: #b91c1c;
+      --dourado-700: #b45309;
+      --verde-700: #047857;
+      --roxo-700: #6d28d9;
+      --preto-900: #020617;
+
+      --sombra-forte: 0 40px 120px rgba(15, 23, 42, 0.28);
+      --safe-top: env(safe-area-inset-top);
+      --safe-right: env(safe-area-inset-right);
+      --safe-bottom: env(safe-area-inset-bottom);
+      --safe-left: env(safe-area-inset-left);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Inter", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      color: var(--texto);
+      background:
+        radial-gradient(circle at 15% 15%, rgba(96, 165, 250, 0.55), transparent 28%),
+        radial-gradient(circle at 85% 80%, rgba(34, 211, 238, 0.42), transparent 32%),
+        linear-gradient(135deg, #f8fbff 0%, #eaf6ff 35%, #dbeafe 100%);
+    }
+
+    body {
+      position: fixed;
+      inset: 0;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    .otto-shell {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+    }
+
+    #ottoCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      opacity: 0.16;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.25) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, black 0%, transparent 78%);
+    }
+
+    .glow-top {
+      position: fixed;
+      width: 54vw;
+      height: 54vw;
+      min-width: 440px;
+      min-height: 440px;
+      border-radius: 999px;
+      top: -24vw;
+      left: -18vw;
+      z-index: 0;
+      background: rgba(96, 165, 250, 0.42);
+      filter: blur(70px);
+      animation: orbTop 12s ease-in-out infinite;
+      will-change: transform;
+    }
+
+    .glow-bottom {
+      position: fixed;
+      width: 52vw;
+      height: 52vw;
+      min-width: 420px;
+      min-height: 420px;
+      border-radius: 999px;
+      right: -20vw;
+      bottom: -22vw;
+      z-index: 0;
+      background: rgba(34, 211, 238, 0.35);
+      filter: blur(76px);
+      animation: orbBottom 14s ease-in-out infinite;
+      will-change: transform;
+    }
+
+    @keyframes orbTop {
+      0% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+
+      50% {
+        transform: translate3d(60px, 50px, 0) scale(1.08);
+      }
+
+      100% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+
+    @keyframes orbBottom {
+      0% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+
+      50% {
+        transform: translate3d(-50px, -40px, 0) scale(1.1);
+      }
+
+      100% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+
+    .controls {
+      position: fixed;
+      top: max(22px, var(--safe-top));
+      right: max(22px, var(--safe-right));
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .otto-btn {
+      width: 62px;
+      height: 62px;
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.46));
+      backdrop-filter: blur(26px);
+      -webkit-backdrop-filter: blur(26px);
+      box-shadow:
+        0 18px 36px rgba(37, 99, 235, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--azul-700);
+      font-size: 25px;
+      transition: transform 0.22s ease, box-shadow 0.22s ease, opacity 0.22s ease;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .otto-btn::before {
+      content: "";
+      position: absolute;
+      inset: -80%;
+      background:
+        linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.65) 45%, transparent 70%);
+      transform: translateX(-55%) rotate(15deg);
+      transition: 0.5s ease;
+      pointer-events: none;
+    }
+
+    .otto-btn:hover {
+      transform: translateY(-3px) scale(1.035);
+      box-shadow:
+        0 24px 52px rgba(37, 99, 235, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    .otto-btn:hover::before {
+      transform: translateX(65%) rotate(15deg);
+    }
+
+    .otto-btn.off {
+      color: #94a3b8 !important;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(226, 232, 240, 0.42));
+      box-shadow:
+        0 12px 24px rgba(15, 23, 42, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .otto-btn.active-pulse::after {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 18px;
+      border: 1px solid currentColor;
+      opacity: 0.42;
+      animation: btnPulse 1.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes btnPulse {
+      0% {
+        transform: scale(0.94);
+        opacity: 0.18;
+      }
+
+      50% {
+        transform: scale(1.12);
+        opacity: 0.5;
+      }
+
+      100% {
+        transform: scale(0.94);
+        opacity: 0.18;
+      }
+    }
+
+    .status-pill {
+      position: fixed;
+      top: max(22px, var(--safe-top));
+      left: max(22px, var(--safe-left));
+      z-index: 26;
+      max-width: min(420px, calc(100% - 180px));
+      padding: 12px 16px;
+      border-radius: 999px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, .86), rgba(255, 255, 255, .45));
+      border: 1px solid rgba(255, 255, 255, .82);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, .11);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, .14);
+      flex: 0 0 auto;
+    }
+
+    .status-text {
+      font-size: 12px;
+      font-weight: 900;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .entrada-invisivel {
+      position: fixed;
+      left: -9999px;
+      top: -9999px;
+      opacity: 0;
+      pointer-events: none;
+      width: 1px;
+      height: 1px;
+    }
+
+    .resultado-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 18;
+      display: none;
+      padding: 28px;
+      pointer-events: none;
+    }
+
+    .resultado-layer.ativo {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .resultado-box {
+      width: min(1240px, 100%);
+      max-height: min(76dvh, 790px);
+      overflow: hidden;
+      border-radius: 34px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.72));
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      box-shadow:
+        0 38px 110px rgba(15, 23, 42, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      animation: subirResultado .25s ease both;
+    }
+
+    @keyframes subirResultado {
+      from {
+        opacity: 0;
+        transform: translateY(28px) scale(.985);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .resultado-header {
+      padding: 20px 22px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background:
+        linear-gradient(135deg, rgba(239, 246, 255, 0.82), rgba(255, 255, 255, 0.42));
+    }
+
+    .resultado-titulo-area {
+      min-width: 0;
+    }
+
+    .resultado-kicker {
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #2563eb;
+      margin-bottom: 4px;
+    }
+
+    .resultado-titulo {
+      font-size: clamp(18px, 2.4vw, 30px);
+      font-weight: 950;
+      color: #0f172a;
+      line-height: 1.12;
+      overflow-wrap: anywhere;
+    }
+
+    .resultado-subtitulo {
+      margin-top: 5px;
+      font-size: 13px;
+      font-weight: 750;
+      color: #64748b;
+      overflow-wrap: anywhere;
+    }
+
+    .resultado-acoes {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+
+    .resultado-mini-btn {
+      height: 46px;
+      min-width: 46px;
+      padding: 0 14px;
+      border: none;
+      border-radius: 17px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .12);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .resultado-fechar {
+      width: 46px;
+      height: 46px;
+      border: none;
+      border-radius: 17px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #0f172a;
+      font-size: 24px;
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .14);
+      flex: 0 0 auto;
+    }
+
+    .resultado-content {
+      padding: 22px;
+      overflow: auto;
+      color: #0f172a;
+      font-size: 15px;
+      line-height: 1.55;
+      scroll-behavior: smooth;
+    }
+
+    .resultado-content::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    .resultado-content::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, .35);
+      border-radius: 999px;
+      border: 3px solid transparent;
+      background-clip: padding-box;
+    }
+
+    .resultado-content h1,
+    .resultado-content h2,
+    .resultado-content h3 {
+      line-height: 1.15;
+      margin-bottom: 12px;
+      color: #0f172a;
+    }
+
+    .resultado-content h1 {
+      font-size: clamp(24px, 3vw, 38px);
+      font-weight: 950;
+    }
+
+    .resultado-content h2 {
+      font-size: clamp(20px, 2.4vw, 30px);
+      font-weight: 930;
+    }
+
+    .resultado-content h3 {
+      font-size: clamp(17px, 2vw, 23px);
+      font-weight: 880;
+    }
+
+    .resultado-content p {
+      margin: 0 0 12px;
+      color: #334155;
+      font-weight: 620;
+    }
+
+    .resultado-content strong {
+      color: #0f172a;
+      font-weight: 950;
+    }
+
+    .resultado-content ul,
+    .resultado-content ol {
+      padding-left: 22px;
+      margin: 10px 0 16px;
+      color: #334155;
+      font-weight: 650;
+    }
+
+    .resultado-content li {
+      margin-bottom: 8px;
+    }
+
+    .resultado-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+      margin: 14px 0;
+    }
+
+    .resultado-card {
+      grid-column: span 3;
+      border-radius: 24px;
+      padding: 18px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.86));
+      border: 1px solid rgba(226, 232, 240, .9);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, .08);
+      min-width: 0;
+    }
+
+    .resultado-card-label {
+      font-size: 11px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #64748b;
+      margin-bottom: 8px;
+      overflow-wrap: anywhere;
+    }
+
+    .resultado-card-valor {
+      font-size: clamp(20px, 2.4vw, 34px);
+      font-weight: 950;
+      color: #0f172a;
+      line-height: 1.02;
+      overflow-wrap: anywhere;
+    }
+
+    .resultado-card-desc {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 780;
+      color: #64748b;
+      overflow-wrap: anywhere;
+    }
+
+    .resultado-tabela-wrap {
+      width: 100%;
+      overflow: auto;
+      border-radius: 22px;
+      border: 1px solid rgba(226, 232, 240, .95);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, .07);
+      margin: 16px 0;
+      background: white;
+    }
+
+    .resultado-tabela {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+      background: white;
+    }
+
+    .resultado-tabela th {
+      text-align: left;
+      padding: 14px 16px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      font-weight: 950;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .resultado-tabela td {
+      padding: 14px 16px;
+      border-top: 1px solid #e2e8f0;
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 720;
+      white-space: nowrap;
+    }
+
+    .resultado-tabela tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .resultado-tabela .positivo {
+      color: #047857;
+      font-weight: 950;
+    }
+
+    .resultado-tabela .negativo {
+      color: #b91c1c;
+      font-weight: 950;
+    }
+
+    .resultado-tabela .alerta {
+      color: #b45309;
+      font-weight: 950;
+    }
+
+    .resultado-grafico-box {
+      margin: 18px 0;
+      padding: 18px;
+      border-radius: 26px;
+      background: rgba(255, 255, 255, .94);
+      border: 1px solid rgba(226, 232, 240, .95);
+      box-shadow: 0 16px 42px rgba(15, 23, 42, .08);
+    }
+
+    .resultado-grafico-titulo {
+      font-size: 16px;
+      font-weight: 950;
+      color: #0f172a;
+      margin-bottom: 12px;
+    }
+
+    .resultado-grafico-canvas {
+      width: 100% !important;
+      height: 330px !important;
+    }
+
+    .resultado-html {
+      display: block;
+    }
+
+    .resultado-html .bloco {
+      padding: 16px;
+      border-radius: 22px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 12px;
+    }
+
+    .resultado-html .positivo,
+    .positivo {
+      color: #047857;
+      font-weight: 950;
+    }
+
+    .resultado-html .negativo,
+    .negativo {
+      color: #b91c1c;
+      font-weight: 950;
+    }
+
+    .resultado-html .alerta,
+    .alerta {
+      color: #b45309;
+      font-weight: 950;
+    }
+
+    .resultado-box[data-tema="escuro"],
+    .resultado-box[data-tema="preto"],
+    .resultado-box[data-tema="executivo"] {
+      background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.88));
+      border-color: rgba(148, 163, 184, .26);
+    }
+
+    .resultado-box[data-tema="escuro"] .resultado-header,
+    .resultado-box[data-tema="preto"] .resultado-header,
+    .resultado-box[data-tema="executivo"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.62));
+      border-bottom-color: rgba(148, 163, 184, .22);
+    }
+
+    .resultado-box[data-tema="escuro"] .resultado-titulo,
+    .resultado-box[data-tema="escuro"] .resultado-content,
+    .resultado-box[data-tema="escuro"] .resultado-card-valor,
+    .resultado-box[data-tema="escuro"] .resultado-content h1,
+    .resultado-box[data-tema="escuro"] .resultado-content h2,
+    .resultado-box[data-tema="escuro"] .resultado-content h3,
+    .resultado-box[data-tema="preto"] .resultado-titulo,
+    .resultado-box[data-tema="preto"] .resultado-content,
+    .resultado-box[data-tema="preto"] .resultado-card-valor,
+    .resultado-box[data-tema="preto"] .resultado-content h1,
+    .resultado-box[data-tema="preto"] .resultado-content h2,
+    .resultado-box[data-tema="preto"] .resultado-content h3,
+    .resultado-box[data-tema="executivo"] .resultado-titulo,
+    .resultado-box[data-tema="executivo"] .resultado-content,
+    .resultado-box[data-tema="executivo"] .resultado-card-valor,
+    .resultado-box[data-tema="executivo"] .resultado-content h1,
+    .resultado-box[data-tema="executivo"] .resultado-content h2,
+    .resultado-box[data-tema="executivo"] .resultado-content h3 {
+      color: #f8fafc;
+    }
+
+    .resultado-box[data-tema="escuro"] .resultado-subtitulo,
+    .resultado-box[data-tema="escuro"] .resultado-content p,
+    .resultado-box[data-tema="escuro"] .resultado-card-label,
+    .resultado-box[data-tema="escuro"] .resultado-card-desc,
+    .resultado-box[data-tema="preto"] .resultado-subtitulo,
+    .resultado-box[data-tema="preto"] .resultado-content p,
+    .resultado-box[data-tema="preto"] .resultado-card-label,
+    .resultado-box[data-tema="preto"] .resultado-card-desc,
+    .resultado-box[data-tema="executivo"] .resultado-subtitulo,
+    .resultado-box[data-tema="executivo"] .resultado-content p,
+    .resultado-box[data-tema="executivo"] .resultado-card-label,
+    .resultado-box[data-tema="executivo"] .resultado-card-desc {
+      color: #cbd5e1;
+    }
+
+    .resultado-box[data-tema="escuro"] .resultado-card,
+    .resultado-box[data-tema="escuro"] .resultado-grafico-box,
+    .resultado-box[data-tema="escuro"] .resultado-html .bloco,
+    .resultado-box[data-tema="preto"] .resultado-card,
+    .resultado-box[data-tema="preto"] .resultado-grafico-box,
+    .resultado-box[data-tema="preto"] .resultado-html .bloco,
+    .resultado-box[data-tema="executivo"] .resultado-card,
+    .resultado-box[data-tema="executivo"] .resultado-grafico-box,
+    .resultado-box[data-tema="executivo"] .resultado-html .bloco {
+      background: rgba(30, 41, 59, .86);
+      border-color: rgba(148, 163, 184, .22);
+    }
+
+    .resultado-box[data-tema="dourado"] .resultado-kicker {
+      color: #b45309;
+    }
+
+    .resultado-box[data-tema="dourado"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(255, 251, 235, .95), rgba(254, 243, 199, .62));
+    }
+
+    .resultado-box[data-tema="dourado"] .resultado-tabela th {
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .resultado-box[data-tema="vermelho"] .resultado-kicker {
+      color: #b91c1c;
+    }
+
+    .resultado-box[data-tema="vermelho"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(255, 241, 242, .95), rgba(254, 205, 211, .58));
+    }
+
+    .resultado-box[data-tema="vermelho"] .resultado-tabela th {
+      background: #fff1f2;
+      color: #991b1b;
+    }
+
+    .resultado-box[data-tema="verde"] .resultado-kicker {
+      color: #047857;
+    }
+
+    .resultado-box[data-tema="verde"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(236, 253, 245, .95), rgba(209, 250, 229, .58));
+    }
+
+    .resultado-box[data-tema="verde"] .resultado-tabela th {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .resultado-box[data-tema="roxo"] .resultado-kicker {
+      color: #6d28d9;
+    }
+
+    .resultado-box[data-tema="roxo"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(245, 243, 255, .95), rgba(221, 214, 254, .58));
+    }
+
+    .resultado-box[data-tema="roxo"] .resultado-tabela th {
+      background: #f5f3ff;
+      color: #5b21b6;
+    }
+
+
+
+    .resultado-box[data-tema="leonardo"] {
+      background:
+        radial-gradient(circle at 10% 0%, rgba(251, 191, 36, 0.22), transparent 34%),
+        radial-gradient(circle at 92% 12%, rgba(245, 158, 11, 0.18), transparent 36%),
+        linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(23, 16, 3, 0.94) 46%, rgba(69, 42, 5, 0.88));
+      border-color: rgba(251, 191, 36, .42);
+      box-shadow:
+        0 42px 130px rgba(0, 0, 0, .42),
+        0 0 0 1px rgba(251, 191, 36, .18),
+        inset 0 1px 0 rgba(255, 255, 255, .14);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(2, 6, 23, .96), rgba(120, 53, 15, .74), rgba(251, 191, 36, .20));
+      border-bottom-color: rgba(251, 191, 36, .28);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-kicker {
+      color: #fbbf24;
+      text-shadow: 0 0 18px rgba(251, 191, 36, .44);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-titulo,
+    .resultado-box[data-tema="leonardo"] .resultado-content,
+    .resultado-box[data-tema="leonardo"] .resultado-card-valor,
+    .resultado-box[data-tema="leonardo"] .resultado-content h1,
+    .resultado-box[data-tema="leonardo"] .resultado-content h2,
+    .resultado-box[data-tema="leonardo"] .resultado-content h3 {
+      color: #fff7d6;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-subtitulo,
+    .resultado-box[data-tema="leonardo"] .resultado-content p,
+    .resultado-box[data-tema="leonardo"] .resultado-card-label,
+    .resultado-box[data-tema="leonardo"] .resultado-card-desc,
+    .resultado-box[data-tema="leonardo"] .resultado-content ul,
+    .resultado-box[data-tema="leonardo"] .resultado-content ol {
+      color: #f7d776;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-card,
+    .resultado-box[data-tema="leonardo"] .resultado-grafico-box,
+    .resultado-box[data-tema="leonardo"] .resultado-html .bloco {
+      background:
+        linear-gradient(135deg, rgba(24, 24, 27, .90), rgba(69, 42, 5, .58));
+      border-color: rgba(251, 191, 36, .28);
+      box-shadow:
+        0 18px 46px rgba(0, 0, 0, .24),
+        inset 0 1px 0 rgba(251, 191, 36, .14);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela-wrap {
+      border-color: rgba(251, 191, 36, .30);
+      background: #0b0b0f;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela {
+      background: #0b0b0f;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela th {
+      background: linear-gradient(135deg, #111827, #78350f);
+      color: #fbbf24;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela td {
+      background: rgba(15, 23, 42, .92);
+      color: #fff7d6;
+      border-top-color: rgba(251, 191, 36, .18);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela tr:nth-child(even) td {
+      background: rgba(69, 42, 5, .38);
+    }
+
+
+
+    .resultado-box[data-tema="yane"] {
+      background:
+        radial-gradient(circle at 12% 0%, rgba(244, 114, 182, 0.24), transparent 36%),
+        radial-gradient(circle at 92% 10%, rgba(251, 207, 232, 0.25), transparent 38%),
+        linear-gradient(135deg, rgba(80, 7, 36, 0.98), rgba(131, 24, 67, 0.94) 46%, rgba(255, 228, 240, 0.18));
+      border-color: rgba(251, 207, 232, .56);
+      box-shadow:
+        0 42px 130px rgba(80, 7, 36, .38),
+        0 0 0 1px rgba(251, 207, 232, .24),
+        inset 0 1px 0 rgba(255, 255, 255, .24);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(80, 7, 36, .96), rgba(190, 24, 93, .70), rgba(255, 228, 240, .30));
+      border-bottom-color: rgba(251, 207, 232, .34);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-kicker {
+      color: #fce7f3;
+      text-shadow: 0 0 18px rgba(244, 114, 182, .55);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-titulo,
+    .resultado-box[data-tema="yane"] .resultado-content,
+    .resultado-box[data-tema="yane"] .resultado-card-valor,
+    .resultado-box[data-tema="yane"] .resultado-content h1,
+    .resultado-box[data-tema="yane"] .resultado-content h2,
+    .resultado-box[data-tema="yane"] .resultado-content h3 {
+      color: #fff1f8;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-subtitulo,
+    .resultado-box[data-tema="yane"] .resultado-content p,
+    .resultado-box[data-tema="yane"] .resultado-card-label,
+    .resultado-box[data-tema="yane"] .resultado-card-desc,
+    .resultado-box[data-tema="yane"] .resultado-content ul,
+    .resultado-box[data-tema="yane"] .resultado-content ol {
+      color: #ffd6ea;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-card,
+    .resultado-box[data-tema="yane"] .resultado-grafico-box,
+    .resultado-box[data-tema="yane"] .resultado-html .bloco {
+      background:
+        linear-gradient(135deg, rgba(112, 26, 117, .70), rgba(190, 24, 93, .36), rgba(255, 255, 255, .08));
+      border-color: rgba(251, 207, 232, .36);
+      box-shadow:
+        0 18px 46px rgba(80, 7, 36, .24),
+        inset 0 1px 0 rgba(255, 255, 255, .18);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela-wrap {
+      border-color: rgba(251, 207, 232, .38);
+      background: #3b0620;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela {
+      background: #3b0620;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela th {
+      background: linear-gradient(135deg, #831843, #db2777, #f9a8d4);
+      color: #fff7fb;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela td {
+      background: rgba(80, 7, 36, .88);
+      color: #fff1f8;
+      border-top-color: rgba(251, 207, 232, .20);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela tr:nth-child(even) td {
+      background: rgba(190, 24, 93, .32);
+    }
+
+    .canvas-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      background: rgba(239, 246, 255, 0.72);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      padding: 28px;
+    }
+
+    .canvas-layer.ativo {
+      display: block;
+    }
+
+    .canvas-frame-box {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 34px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.82);
+      box-shadow: var(--sombra-forte);
+    }
+
+    .canvas-frame-box iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: white;
+    }
+
+    .canvas-close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      z-index: 3;
+      width: 50px;
+      height: 50px;
+      border: none;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #0f172a;
+      font-size: 22px;
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+    }
+
+    .audio-permission {
+      position: fixed;
+      left: 50%;
+      bottom: max(24px, var(--safe-bottom));
+      transform: translateX(-50%);
+      z-index: 40;
+      max-width: min(620px, calc(100% - 30px));
+      padding: 16px 18px;
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.66));
+      border: 1px solid rgba(255, 255, 255, 0.86);
+      box-shadow: 0 20px 48px rgba(37, 99, 235, 0.18);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      display: none;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e3a8a;
+      text-align: center;
+    }
+
+    .audio-permission.mostrar {
+      display: flex;
+    }
+
+    .audio-permission button {
+      border: none;
+      border-radius: 16px;
+      padding: 12px 16px;
+      color: white;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      font-size: 12px;
+      font-weight: 950;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
+    }
+
+    .toast-otto {
+      position: fixed;
+      left: 50%;
+      top: max(92px, calc(var(--safe-top) + 82px));
+      transform: translateX(-50%);
+      z-index: 50;
+      max-width: min(680px, calc(100% - 28px));
+      padding: 14px 18px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, .92);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 850;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, .26);
+      display: none;
+      text-align: center;
+    }
+
+    .toast-otto.ativo {
+      display: block;
+      animation: toastShow .18s ease both;
+    }
+
+    @keyframes toastShow {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .controls {
+        top: max(14px, var(--safe-top));
+        right: 14px;
+        gap: 10px;
+      }
+
+      .otto-btn {
+        width: 54px;
+        height: 54px;
+        border-radius: 19px;
+        font-size: 22px;
+      }
+
+      .status-pill {
+        top: max(14px, var(--safe-top));
+        left: 14px;
+        max-width: calc(100% - 146px);
+      }
+
+      .resultado-layer {
+        padding: 10px;
+      }
+
+      .resultado-layer.ativo {
+        align-items: flex-end;
+      }
+
+      .resultado-box {
+        max-height: 78dvh;
+        border-radius: 26px;
+      }
+
+      .resultado-header {
+        padding: 16px;
+      }
+
+      .resultado-content {
+        padding: 16px;
+      }
+
+      .resultado-card {
+        grid-column: span 6;
+      }
+
+      .resultado-grafico-canvas {
+        height: 280px !important;
+      }
+
+
+
+      .resultado-box[data-tema="yane"] {
+        background:
+          radial-gradient(circle at 12% 0%, rgba(244, 114, 182, 0.24), transparent 36%),
+          radial-gradient(circle at 92% 10%, rgba(251, 207, 232, 0.25), transparent 38%),
+          linear-gradient(135deg, rgba(80, 7, 36, 0.98), rgba(131, 24, 67, 0.94) 46%, rgba(255, 228, 240, 0.18));
+        border-color: rgba(251, 207, 232, .56);
+        box-shadow:
+          0 42px 130px rgba(80, 7, 36, .38),
+          0 0 0 1px rgba(251, 207, 232, .24),
+          inset 0 1px 0 rgba(255, 255, 255, .24);
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-header {
+        background:
+          linear-gradient(135deg, rgba(80, 7, 36, .96), rgba(190, 24, 93, .70), rgba(255, 228, 240, .30));
+        border-bottom-color: rgba(251, 207, 232, .34);
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-kicker {
+        color: #fce7f3;
+        text-shadow: 0 0 18px rgba(244, 114, 182, .55);
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-titulo,
+      .resultado-box[data-tema="yane"] .resultado-content,
+      .resultado-box[data-tema="yane"] .resultado-card-valor,
+      .resultado-box[data-tema="yane"] .resultado-content h1,
+      .resultado-box[data-tema="yane"] .resultado-content h2,
+      .resultado-box[data-tema="yane"] .resultado-content h3 {
+        color: #fff1f8;
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-subtitulo,
+      .resultado-box[data-tema="yane"] .resultado-content p,
+      .resultado-box[data-tema="yane"] .resultado-card-label,
+      .resultado-box[data-tema="yane"] .resultado-card-desc,
+      .resultado-box[data-tema="yane"] .resultado-content ul,
+      .resultado-box[data-tema="yane"] .resultado-content ol {
+        color: #ffd6ea;
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-card,
+      .resultado-box[data-tema="yane"] .resultado-grafico-box,
+      .resultado-box[data-tema="yane"] .resultado-html .bloco {
+        background:
+          linear-gradient(135deg, rgba(112, 26, 117, .70), rgba(190, 24, 93, .36), rgba(255, 255, 255, .08));
+        border-color: rgba(251, 207, 232, .36);
+        box-shadow:
+          0 18px 46px rgba(80, 7, 36, .24),
+          inset 0 1px 0 rgba(255, 255, 255, .18);
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-tabela-wrap {
+        border-color: rgba(251, 207, 232, .38);
+        background: #3b0620;
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-tabela {
+        background: #3b0620;
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-tabela th {
+        background: linear-gradient(135deg, #831843, #db2777, #f9a8d4);
+        color: #fff7fb;
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-tabela td {
+        background: rgba(80, 7, 36, .88);
+        color: #fff1f8;
+        border-top-color: rgba(251, 207, 232, .20);
+      }
+
+      .resultado-box[data-tema="yane"] .resultado-tabela tr:nth-child(even) td {
+        background: rgba(190, 24, 93, .32);
+      }
+
+      .canvas-layer {
+        padding: 10px;
+      }
+
+      .canvas-frame-box {
+        border-radius: 24px;
+      }
+
+      .canvas-close {
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        top: 12px;
+        right: 12px;
+      }
+
+      .audio-permission {
+        flex-direction: column;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .resultado-box {
+        max-height: 80dvh;
+        border-radius: 22px;
+      }
+
+      .resultado-card {
+        grid-column: span 12;
+      }
+
+      .resultado-fechar,
+      .resultado-mini-btn {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 15px;
+        padding: 0;
+        font-size: 12px;
+      }
+
+      .resultado-mini-btn span {
+        display: none;
+      }
+
+      .resultado-titulo {
+        font-size: 18px;
+      }
+
+      .resultado-subtitulo {
+        font-size: 12px;
+      }
+
+      .resultado-tabela {
+        min-width: 680px;
+      }
+
+      .resultado-tabela th,
+      .resultado-tabela td {
+        padding: 12px;
+        font-size: 12px;
+      }
+
+      .status-pill {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .glow-top,
+      .glow-bottom,
+      .otto-btn.active-pulse::after {
+        animation: none !important;
+      }
+
+      .resultado-box {
+        animation: none !important;
+      }
+    }
+
+
+    /* =====================================================
+       AJUSTE FINAL • LEITURA PERFEITA DOS MODOS ESPECIAIS
+       Leonardo: resultado/canvas claro com letras escuras.
+       Yane: resultado claro rosa premium e visual leve.
+    ===================================================== */
+
+    .resultado-box[data-tema="leonardo"] {
+      background:
+        radial-gradient(circle at 8% 0%, rgba(251, 191, 36, 0.30), transparent 34%),
+        radial-gradient(circle at 94% 8%, rgba(217, 119, 6, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(255, 252, 231, 0.98), rgba(255, 247, 214, 0.94) 46%, rgba(255, 255, 255, 0.92));
+      border-color: rgba(180, 83, 9, .34);
+      box-shadow:
+        0 38px 110px rgba(120, 53, 15, .18),
+        0 0 0 1px rgba(251, 191, 36, .20),
+        inset 0 1px 0 rgba(255, 255, 255, .88);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(255, 251, 235, .98), rgba(254, 243, 199, .78), rgba(255, 255, 255, .72));
+      border-bottom-color: rgba(180, 83, 9, .22);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-kicker {
+      color: #92400e;
+      text-shadow: none;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-titulo,
+    .resultado-box[data-tema="leonardo"] .resultado-content,
+    .resultado-box[data-tema="leonardo"] .resultado-card-valor,
+    .resultado-box[data-tema="leonardo"] .resultado-content h1,
+    .resultado-box[data-tema="leonardo"] .resultado-content h2,
+    .resultado-box[data-tema="leonardo"] .resultado-content h3,
+    .resultado-box[data-tema="leonardo"] .resultado-content strong {
+      color: #1c1917;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-subtitulo,
+    .resultado-box[data-tema="leonardo"] .resultado-content p,
+    .resultado-box[data-tema="leonardo"] .resultado-card-label,
+    .resultado-box[data-tema="leonardo"] .resultado-card-desc,
+    .resultado-box[data-tema="leonardo"] .resultado-content ul,
+    .resultado-box[data-tema="leonardo"] .resultado-content ol,
+    .resultado-box[data-tema="leonardo"] .resultado-content li {
+      color: #57534e;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-card,
+    .resultado-box[data-tema="leonardo"] .resultado-grafico-box,
+    .resultado-box[data-tema="leonardo"] .resultado-html .bloco {
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, .97), rgba(255, 251, 235, .90));
+      border-color: rgba(217, 119, 6, .20);
+      box-shadow: 0 16px 42px rgba(120, 53, 15, .10);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela-wrap {
+      border-color: rgba(217, 119, 6, .22);
+      background: #ffffff;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela {
+      background: #ffffff;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela th {
+      background: linear-gradient(135deg, #fffbeb, #fde68a);
+      color: #78350f;
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela td {
+      background: #ffffff;
+      color: #1c1917;
+      border-top-color: rgba(217, 119, 6, .16);
+    }
+
+    .resultado-box[data-tema="leonardo"] .resultado-tabela tr:nth-child(even) td {
+      background: #fff7ed;
+    }
+
+    .resultado-box[data-tema="yane"] {
+      background:
+        radial-gradient(circle at 10% 0%, rgba(244, 114, 182, 0.24), transparent 34%),
+        radial-gradient(circle at 92% 8%, rgba(251, 207, 232, 0.34), transparent 36%),
+        linear-gradient(135deg, rgba(255, 247, 251, 0.98), rgba(252, 231, 243, 0.94) 48%, rgba(255, 255, 255, 0.92));
+      border-color: rgba(219, 39, 119, .26);
+      box-shadow:
+        0 38px 110px rgba(190, 24, 93, .16),
+        0 0 0 1px rgba(251, 207, 232, .32),
+        inset 0 1px 0 rgba(255, 255, 255, .90);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-header {
+      background:
+        linear-gradient(135deg, rgba(255, 247, 251, .98), rgba(252, 231, 243, .82), rgba(255, 255, 255, .70));
+      border-bottom-color: rgba(219, 39, 119, .18);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-kicker {
+      color: #be185d;
+      text-shadow: none;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-titulo,
+    .resultado-box[data-tema="yane"] .resultado-content,
+    .resultado-box[data-tema="yane"] .resultado-card-valor,
+    .resultado-box[data-tema="yane"] .resultado-content h1,
+    .resultado-box[data-tema="yane"] .resultado-content h2,
+    .resultado-box[data-tema="yane"] .resultado-content h3,
+    .resultado-box[data-tema="yane"] .resultado-content strong {
+      color: #3b0620;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-subtitulo,
+    .resultado-box[data-tema="yane"] .resultado-content p,
+    .resultado-box[data-tema="yane"] .resultado-card-label,
+    .resultado-box[data-tema="yane"] .resultado-card-desc,
+    .resultado-box[data-tema="yane"] .resultado-content ul,
+    .resultado-box[data-tema="yane"] .resultado-content ol,
+    .resultado-box[data-tema="yane"] .resultado-content li {
+      color: #831843;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-card,
+    .resultado-box[data-tema="yane"] .resultado-grafico-box,
+    .resultado-box[data-tema="yane"] .resultado-html .bloco {
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, .97), rgba(253, 242, 248, .92));
+      border-color: rgba(219, 39, 119, .18);
+      box-shadow: 0 16px 42px rgba(190, 24, 93, .10);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela-wrap {
+      border-color: rgba(219, 39, 119, .20);
+      background: #ffffff;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela {
+      background: #ffffff;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela th {
+      background: linear-gradient(135deg, #fdf2f8, #fbcfe8);
+      color: #9d174d;
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela td {
+      background: #ffffff;
+      color: #3b0620;
+      border-top-color: rgba(219, 39, 119, .14);
+    }
+
+    .resultado-box[data-tema="yane"] .resultado-tabela tr:nth-child(even) td {
+      background: #fdf2f8;
+    }
+
+    .canvas-layer[data-tema="leonardo"],
+    body.modo-leonardo .canvas-layer {
+      background: rgba(255, 251, 235, 0.78);
+    }
+
+    .canvas-layer[data-tema="yane"],
+    body.modo-yane .canvas-layer {
+      background: rgba(253, 242, 248, 0.78);
+    }
+
+
+
+    .botao-pdf-otto {
+      background:
+        linear-gradient(135deg, #0f172a, #1d4ed8) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255, 255, 255, 0.45) !important;
+      box-shadow:
+        0 16px 34px rgba(29, 78, 216, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    }
+
+    .botao-pdf-otto:hover {
+      transform: translateY(-2px) scale(1.025);
+      box-shadow:
+        0 22px 48px rgba(29, 78, 216, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+    }
+
+    .canvas-download {
+      position: absolute;
+      top: 18px;
+      right: 82px;
+      z-index: 4;
+      height: 50px;
+      padding: 0 18px;
+      border: none;
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, #0f172a, #1d4ed8);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow:
+        0 12px 30px rgba(15, 23, 42, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .canvas-download:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 18px 42px rgba(15, 23, 42, 0.30),
+        inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    }
+
+    .pdf-otto-wrapper {
+      width: 1120px;
+      min-height: 1584px;
+      padding: 54px;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(59, 130, 246, 0.12), transparent 30%),
+        radial-gradient(circle at 92% 12%, rgba(14, 165, 233, 0.12), transparent 34%),
+        linear-gradient(135deg, #ffffff 0%, #f8fbff 46%, #eff6ff 100%);
+      color: #0f172a;
+      font-family: "Inter", Arial, sans-serif;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pdf-otto-wrapper::before {
+      content: "OTTO";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(-24deg);
+      font-size: 190px;
+      font-weight: 950;
+      letter-spacing: 0.08em;
+      color: rgba(15, 23, 42, 0.045);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .pdf-otto-wrapper::after {
+      content: "";
+      position: absolute;
+      inset: 28px;
+      border: 1px solid rgba(37, 99, 235, 0.12);
+      border-radius: 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .pdf-otto-topo {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      padding-bottom: 22px;
+      margin-bottom: 26px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    }
+
+    .pdf-otto-marca {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .pdf-otto-logo {
+      width: 62px;
+      height: 62px;
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, #0f172a, #2563eb);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+      font-weight: 950;
+      letter-spacing: 0.04em;
+      box-shadow: 0 14px 32px rgba(37, 99, 235, 0.24);
+    }
+
+    .pdf-otto-titulo-area {
+      min-width: 0;
+    }
+
+    .pdf-otto-kicker {
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #2563eb;
+      margin-bottom: 5px;
+    }
+
+    .pdf-otto-titulo {
+      font-size: 30px;
+      line-height: 1.08;
+      font-weight: 950;
+      color: #0f172a;
+      overflow-wrap: anywhere;
+    }
+
+    .pdf-otto-data {
+      text-align: right;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #64748b;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .pdf-otto-conteudo {
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+      overflow: visible;
+    }
+
+    .pdf-otto-conteudo h1,
+    .pdf-otto-conteudo h2,
+    .pdf-otto-conteudo h3 {
+      color: #0f172a;
+      line-height: 1.14;
+      margin: 0 0 14px;
+    }
+
+    .pdf-otto-conteudo h1 {
+      font-size: 34px;
+      font-weight: 950;
+    }
+
+    .pdf-otto-conteudo h2 {
+      font-size: 26px;
+      font-weight: 930;
+    }
+
+    .pdf-otto-conteudo h3 {
+      font-size: 21px;
+      font-weight: 900;
+    }
+
+    .pdf-otto-conteudo p {
+      margin: 0 0 13px;
+      color: #334155;
+      font-size: 15px;
+      line-height: 1.58;
+      font-weight: 620;
+    }
+
+    .pdf-otto-conteudo strong {
+      color: #0f172a;
+      font-weight: 950;
+    }
+
+    .pdf-otto-conteudo ul,
+    .pdf-otto-conteudo ol {
+      margin: 12px 0 18px;
+      padding-left: 24px;
+      color: #334155;
+      font-weight: 650;
+    }
+
+    .pdf-otto-conteudo li {
+      margin-bottom: 8px;
+    }
+
+    .pdf-otto-conteudo table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      background: #ffffff;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+    }
+
+    .pdf-otto-conteudo th {
+      text-align: left;
+      padding: 13px 14px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-weight: 950;
+      border-bottom: 1px solid #dbeafe;
+    }
+
+    .pdf-otto-conteudo td {
+      padding: 13px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .pdf-otto-conteudo tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .pdf-otto-conteudo canvas {
+      max-width: 100%;
+    }
+
+    .pdf-otto-rodape {
+      position: relative;
+      z-index: 1;
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(148, 163, 184, 0.18);
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .pdf-otto-loading {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(15, 23, 42, 0.42);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .pdf-otto-loading.ativo {
+      display: flex;
+    }
+
+    .pdf-otto-loading-card {
+      width: min(420px, 100%);
+      padding: 24px;
+      border-radius: 26px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.90));
+      border: 1px solid rgba(255, 255, 255, 0.84);
+      box-shadow: 0 34px 90px rgba(15, 23, 42, 0.32);
+      text-align: center;
+      color: #0f172a;
+    }
+
+    .pdf-otto-loading-logo {
+      width: 62px;
+      height: 62px;
+      margin: 0 auto 14px;
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, #0f172a, #2563eb);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 950;
+      letter-spacing: 0.04em;
+      box-shadow: 0 16px 34px rgba(37, 99, 235, 0.26);
+    }
+
+    .pdf-otto-loading-titulo {
+      font-size: 18px;
+      font-weight: 950;
+      margin-bottom: 6px;
+    }
+
+    .pdf-otto-loading-texto {
+      font-size: 13px;
+      font-weight: 750;
+      color: #64748b;
+    }
+
+    @media (max-width: 900px) {
+      .canvas-download {
+        top: 12px;
+        right: 64px;
+        height: 44px;
+        border-radius: 15px;
+        padding: 0 13px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .canvas-download {
+        right: 62px;
+        padding: 0 12px;
+      }
+
+      .canvas-download {
+        font-size: 0;
+      }
+
+      .canvas-download::before {
+        content: "⬇️";
+        font-size: 17px;
+      }
+    }
+
+
+    /* =====================================================
+   OTTO • EFEITO INTENSO NO FUNDO QUANDO DETECTA FALA
+   Sem popup, sem card, sem texto
+===================================================== */
+
+    /* 
+.otto-shell.fala-detectada {
+  animation: ottoFundoRespiraFala 0.9s ease-out both;
+}
+*/
+
+    .otto-shell.fala-detectada::before {
+      content: "";
+      position: fixed;
+      inset: -12%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.46), transparent 24%),
+        radial-gradient(circle at 18% 24%, rgba(56, 189, 248, 0.34), transparent 26%),
+        radial-gradient(circle at 82% 74%, rgba(59, 130, 246, 0.34), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.24), transparent 36%);
+      filter: blur(7px) saturate(1.7);
+      mix-blend-mode: screen;
+      animation: ottoFundoExplosaoFala 1.1s ease-out both;
+    }
+
+    /*
+.otto-shell.fala-detectada #ottoCanvas {
+  filter: brightness(1.16) contrast(1.12) saturate(1.65);
+}
+*/
+
+    .otto-shell.fala-detectada .glow-top {
+      background: rgba(59, 130, 246, 0.88);
+      filter: blur(42px);
+      transform: scale(1.16);
+    }
+
+    .otto-shell.fala-detectada .glow-bottom {
+      background: rgba(34, 211, 238, 0.82);
+      filter: blur(44px);
+      transform: scale(1.18);
+    }
+
+    .otto-shell.fala-detectada .noise {
+      opacity: 0.34;
+    }
+
+    /* VERMELHO */
+    body.modo-vermelho .otto-shell.fala-detectada::before,
+    body.modo-controle .otto-shell.fala-detectada::before {
+      background:
+        radial-gradient(circle at 50% 50%, rgba(220, 38, 38, 0.48), transparent 24%),
+        radial-gradient(circle at 18% 24%, rgba(248, 113, 113, 0.36), transparent 26%),
+        radial-gradient(circle at 82% 74%, rgba(185, 28, 28, 0.34), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(239, 68, 68, 0.26), transparent 36%);
+    }
+
+    body.modo-vermelho .otto-shell.fala-detectada .glow-top,
+    body.modo-controle .otto-shell.fala-detectada .glow-top {
+      background: rgba(248, 113, 113, 0.88);
+    }
+
+    body.modo-vermelho .otto-shell.fala-detectada .glow-bottom,
+    body.modo-controle .otto-shell.fala-detectada .glow-bottom {
+      background: rgba(220, 38, 38, 0.76);
+    }
+
+    /* DOURADO / LEONARDO */
+    body.modo-dourado .otto-shell.fala-detectada::before,
+    body.modo-leonardo .otto-shell.fala-detectada::before {
+      background:
+        radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.54), transparent 24%),
+        radial-gradient(circle at 18% 24%, rgba(251, 191, 36, 0.42), transparent 26%),
+        radial-gradient(circle at 82% 74%, rgba(180, 83, 9, 0.36), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(217, 119, 6, 0.30), transparent 36%);
+    }
+
+    body.modo-dourado .otto-shell.fala-detectada .glow-top,
+    body.modo-leonardo .otto-shell.fala-detectada .glow-top {
+      background: rgba(251, 191, 36, 0.92);
+    }
+
+    body.modo-dourado .otto-shell.fala-detectada .glow-bottom,
+    body.modo-leonardo .otto-shell.fala-detectada .glow-bottom {
+      background: rgba(245, 158, 11, 0.82);
+    }
+
+    /* VERDE */
+    body.modo-verde .otto-shell.fala-detectada::before {
+      background:
+        radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.48), transparent 24%),
+        radial-gradient(circle at 18% 24%, rgba(52, 211, 153, 0.38), transparent 26%),
+        radial-gradient(circle at 82% 74%, rgba(4, 120, 87, 0.34), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(5, 150, 105, 0.28), transparent 36%);
+    }
+
+    body.modo-verde .otto-shell.fala-detectada .glow-top {
+      background: rgba(52, 211, 153, 0.88);
+    }
+
+    body.modo-verde .otto-shell.fala-detectada .glow-bottom {
+      background: rgba(16, 185, 129, 0.78);
+    }
+
+    /* ROXO / YANE */
+    body.modo-roxo .otto-shell.fala-detectada::before,
+    body.modo-yane .otto-shell.fala-detectada::before {
+      background:
+        radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.50), transparent 24%),
+        radial-gradient(circle at 18% 24%, rgba(196, 181, 253, 0.38), transparent 26%),
+        radial-gradient(circle at 82% 74%, rgba(109, 40, 217, 0.34), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(147, 51, 234, 0.28), transparent 36%);
+    }
+
+    body.modo-roxo .otto-shell.fala-detectada .glow-top,
+    body.modo-yane .otto-shell.fala-detectada .glow-top {
+      background: rgba(196, 181, 253, 0.88);
+    }
+
+    body.modo-roxo .otto-shell.fala-detectada .glow-bottom,
+    body.modo-yane .otto-shell.fala-detectada .glow-bottom {
+      background: rgba(168, 85, 247, 0.78);
+    }
+
+    @keyframes ottoFundoRespiraFala {
+      0% {
+        transform: scale(1);
+      }
+
+      28% {
+        transform: scale(1.012);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes ottoFundoExplosaoFala {
+      0% {
+        opacity: 0;
+        transform: scale(0.88);
+        filter: blur(18px) saturate(1.1);
+      }
+
+      16% {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(6px) saturate(1.9);
+      }
+
+      46% {
+        opacity: 0.88;
+        transform: scale(1.08);
+        filter: blur(3px) saturate(2.15);
+      }
+
+      100% {
+        opacity: 0;
+        transform: scale(1.24);
+        filter: blur(20px) saturate(1.2);
+      }
+    }
+
+    /* ESCONDE O CARD DE STATUS DO TOPO */
+    .status-pill {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="otto-shell">
+
+    <div class="glow-top" id="glowTop"></div>
+    <div class="glow-bottom" id="glowBottom"></div>
+
+    <canvas id="ottoCanvas"></canvas>
+
+    <div class="noise"></div>
+
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="status-text" id="statusText">OTTO iniciando</div>
+    </div>
+
+    <div class="controls">
+      <button
+        id="btnSom"
+        class="otto-btn active-pulse"
+        type="button"
+        title="Ativar ou desativar voz do OTTO"
+        aria-label="Ativar ou desativar voz do OTTO"
+      >
+        🔊
+      </button>
+
+      <button
+        id="btnMic"
+        class="otto-btn active-pulse"
+        type="button"
+        title="Ativar ou desativar microfone do OTTO"
+        aria-label="Ativar ou desativar microfone do OTTO"
+      >
+        🎤
+      </button>
+    </div>
+
+    <input
+      id="input"
+      class="entrada-invisivel"
+      autocomplete="off"
+      placeholder="Pergunte algo ao OTTO..."
+    >
+
+    <div id="chat" class="entrada-invisivel"></div>
+
+    <div id="resultadoLayer" class="resultado-layer">
+      <div id="resultadoBox" class="resultado-box" data-tema="azul">
+        <div class="resultado-header">
+          <div class="resultado-titulo-area">
+            <div id="resultadoKicker" class="resultado-kicker">OTTO RESULTADO</div>
+            <div id="resultadoTitulo" class="resultado-titulo">Resultado</div>
+            <div id="resultadoSubtitulo" class="resultado-subtitulo">Resposta da central inteligente</div>
+          </div>
+
+          <div class="resultado-acoes">
+            <button
+    id="resultadoBaixarPdf"
+    class="resultado-mini-btn botao-pdf-otto"
+    type="button"
+    onclick="baixarPDFOtto()"
+    title="Baixar PDF bonito"
+  >
+    ⬇️ <span>PDF</span>
+  </button>
+
+            <button
+    id="resultadoCopiar"
+    class="resultado-mini-btn"
+    type="button"
+    onclick="copiarResultado()"
+    title="Copiar resultado"
+  >
+    📋 <span>Copiar</span>
+  </button>
+
+            <button
+    id="resultadoLimpar"
+    class="resultado-mini-btn"
+    type="button"
+    onclick="limparResultadoVisual()"
+    title="Limpar resultado"
+  >
+    🧹 <span>Limpar</span>
+  </button>
+
+            <button
+    id="resultadoFechar"
+    class="resultado-fechar"
+    type="button"
+    onclick="fecharResultado()"
+    title="Fechar resultado"
+  >
+    ×
+  </button>
+          </div>
+        </div>
+
+        <div id="resultadoContent" class="resultado-content"></div>
+      </div>
+    </div>
+
+    <div id="canvasLayer" class="canvas-layer">
+      <div class="canvas-frame-box">
+        <button
+      class="canvas-download"
+      type="button"
+      onclick="baixarPDFOtto()"
+      title="Baixar canvas em PDF"
+    >
+      ⬇️ PDF
+    </button>
+
+        <button
+      class="canvas-close"
+      type="button"
+      onclick="fecharCanvas()"
+      title="Fechar canvas"
+    >
+      ×
+    </button>
+
+        <iframe id="canvasFrame" src="about:blank"></iframe>
+      </div>
+    </div>
+
+    <div id="audioPermission" class="audio-permission">
+      <span>
+        Toque para liberar a voz e a escuta contínua do OTTO neste dispositivo.
+      </span>
+
+      <button
+        type="button"
+        onclick="liberarAudioEEntrada()"
+      >
+        Liberar OTTO
+      </button>
+    </div>
+    <div id="pdfOttoLoading" class="pdf-otto-loading">
+      <div class="pdf-otto-loading-card">
+        <div class="pdf-otto-loading-logo">OTTO</div>
+        <div class="pdf-otto-loading-titulo">Gerando PDF</div>
+        <div class="pdf-otto-loading-texto">
+          Preparando o relatório.
+        </div>
+      </div>
+    </div>
+
+    <div id="toastOtto" class="toast-otto"></div>
+
+  </div>
+
+  <script>
+    const supabaseClient = supabase.createClient(
+      "https://dxkszikemntfusfyrzos.supabase.co",
+      "sb_publishable_NNFvdfSXgOdGGVcSbphbjQ_brC3_9ed"
+    );
+
+    const usuarioLogado = JSON.parse(
+      localStorage.getItem("usuarioLogado")
+    );
+
+    if (!usuarioLogado) {
+      location.href = "login.html";
+    }
+
+    if (usuarioLogado && usuarioLogado.nivel_acesso !== 0) {
+      alert("Acesso negado.");
+      location.href = "/";
+    }
+
+    const API_ADMIN_AGENTE = "/api/admin-agente";
+
+    const canvas = document.getElementById("ottoCanvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+
+    const btnSom = document.getElementById("btnSom");
+    const btnMic = document.getElementById("btnMic");
+    const audioPermission = document.getElementById("audioPermission");
+    const glowTop = document.getElementById("glowTop");
+    const glowBottom = document.getElementById("glowBottom");
+    const input = document.getElementById("input");
+    const chat = document.getElementById("chat");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+   const toastOtto = document.getElementById("toastOtto");
+const ottoShell = document.querySelector(".otto-shell");
+
+    const resultadoLayer = document.getElementById("resultadoLayer");
+    const resultadoBox = document.getElementById("resultadoBox");
+    const resultadoKicker = document.getElementById("resultadoKicker");
+    const resultadoTitulo = document.getElementById("resultadoTitulo");
+    const resultadoSubtitulo = document.getElementById("resultadoSubtitulo");
+    const resultadoContent = document.getElementById("resultadoContent");
+
+    let largura = 0;
+    let altura = 0;
+    let centroX = 0;
+    let centroY = 0;
+    let escalaPixel = 1;
+
+    let tempo = 0;
+    let frameAtual = 0;
+    let particulas = [];
+    let ondas = [];
+    let linhas = [];
+    let estrelas = [];
+    let cifras = [];
+    let fagulhas = [];
+    let raios = [];
+    let chuva = [];
+
+    let vozAtiva = true;
+    let micAtivo = true;
+    let audioLiberado = false;
+    let reconhecimentoRodando = false;
+    let processando = false;
+    let falandoAgora = false;
+    let ignorarResultadoAte = 0;
+
+let paradaManualMicrofone = false;
+let reiniciarMicrofoneTimer = null;
+let toastTimer = null;
+let efeitoFalaTimer = null;
+let ultimoEfeitoFala = 0;
+
+    let ultimoTextoUsuario = "";
+    let ultimaRespostaOtto = "";
+    let ultimaRespostaCompleta = "";
+    let estadoOtto = "INICIANDO";
+    let subEstadoOtto = "Preparando inteligência operacional";
+    let nivelEnergia = 0.52;
+    let intensidadeVoz = 0;
+    let pulsoResposta = 0;
+
+    let temaAtual = localStorage.getItem("ottoTemaAtual") || "azul";
+    let graficosResultado = [];
+
+    const SpeechRecognition =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
+
+    let recognition = null;
+
+    const TEMAS = {
+      azul: {
+        nome: "PADRÃO AZUL",
+        titulo: "OTTO",
+        subtitulo: "",
+        estado: "ONLINE",
+        falaEntrada: "Modo padrão ativado.",
+        corTexto: "#0f172a",
+        corSuave: "#475569",
+        fundo1: "#f8fbff",
+        fundo2: "#eff6ff",
+        fundo3: "#dbeafe",
+        fundo4: "#bfdbfe",
+        primario: "37,99,235",
+        secundario: "34,211,238",
+        destaque: "96,165,250",
+        sombra: "rgba(37,99,235,0.24)",
+        particula: "37,99,235",
+        grid: "37,99,235",
+        caixa: "rgba(255,255,255,0.68)",
+        caixa2: "rgba(255,255,255,0.38)",
+        modoCifrao: false,
+        modoFagulha: false,
+        modoRaio: false,
+        modoChuva: false
+      },
+
+      vermelho: {
+        nome: "MODO CONTROLE",
+        titulo: "OTTO",
+        subtitulo: "",
+        estado: "MODO VERMELHO",
+        falaEntrada: "Respira. Vai dar certo, errado já deu.",
+        corTexto: "#450a0a",
+        corSuave: "#7f1d1d",
+        fundo1: "#fff7f7",
+        fundo2: "#ffe4e6",
+        fundo3: "#fecdd3",
+        fundo4: "#fda4af",
+        primario: "220,38,38",
+        secundario: "251,113,133",
+        destaque: "239,68,68",
+        sombra: "rgba(220,38,38,0.28)",
+        particula: "220,38,38",
+        grid: "239,68,68",
+        caixa: "rgba(255,255,255,0.74)",
+        caixa2: "rgba(255,228,230,0.46)",
+        modoCifrao: false,
+        modoFagulha: true,
+        modoRaio: false,
+        modoChuva: false
+      },
+
+      dourado: {
+        nome: "MODO RESULTADO",
+        titulo: "OTTO",
+        subtitulo: "VAMOS PRA CIMA • EXECUÇÃO TOTAL",
+        estado: "MODO DOURADO",
+        falaEntrada: "Só não vai desanimar, temos muitos boletos.",
+        corTexto: "#422006",
+        corSuave: "#92400e",
+        fundo1: "#fffdf4",
+        fundo2: "#fffbeb",
+        fundo3: "#fef3c7",
+        fundo4: "#fde68a",
+        primario: "217,119,6",
+        secundario: "245,158,11",
+        destaque: "251,191,36",
+        sombra: "rgba(217,119,6,0.30)",
+        particula: "217,119,6",
+        grid: "245,158,11",
+        caixa: "rgba(255,255,255,0.76)",
+        caixa2: "rgba(254,243,199,0.54)",
+        modoCifrao: true,
+        modoFagulha: true,
+        modoRaio: false,
+        modoChuva: false
+      },
+
+      verde: {
+        nome: "MODO OPERAÇÃO",
+        titulo: "OTTO",
+        subtitulo: "",
+        estado: "MODO VERDE",
+        falaEntrada: "Modo operação ativado.",
+        corTexto: "#022c22",
+        corSuave: "#065f46",
+        fundo1: "#f0fdf4",
+        fundo2: "#dcfce7",
+        fundo3: "#bbf7d0",
+        fundo4: "#86efac",
+        primario: "5,150,105",
+        secundario: "16,185,129",
+        destaque: "52,211,153",
+        sombra: "rgba(5,150,105,0.26)",
+        particula: "5,150,105",
+        grid: "16,185,129",
+        caixa: "rgba(255,255,255,0.74)",
+        caixa2: "rgba(220,252,231,0.48)",
+        modoCifrao: false,
+        modoFagulha: false,
+        modoRaio: false,
+        modoChuva: false
+      },
+
+      roxo: {
+        nome: "MODO ESTRATÉGIA",
+        titulo: "OTTO",
+        subtitulo: "",
+        estado: "MODO ROXO",
+        falaEntrada: "Modo estratégia ativado.",
+        corTexto: "#2e1065",
+        corSuave: "#5b21b6",
+        fundo1: "#fbfaff",
+        fundo2: "#f5f3ff",
+        fundo3: "#ddd6fe",
+        fundo4: "#c4b5fd",
+        primario: "109,40,217",
+        secundario: "139,92,246",
+        destaque: "167,139,250",
+        sombra: "rgba(109,40,217,0.28)",
+        particula: "109,40,217",
+        grid: "139,92,246",
+        caixa: "rgba(255,255,255,0.76)",
+        caixa2: "rgba(245,243,255,0.52)",
+        modoCifrao: false,
+        modoFagulha: true,
+        modoRaio: false,
+        modoChuva: false
+      },
+
+      preto: {
+        nome: "MODO EXECUTIVO",
+        titulo: "OTTO",
+        subtitulo: "ALTA PERFORMANCE",
+        estado: "MODO EXECUTIVO",
+        falaEntrada: "Modo executivo ativado.",
+        corTexto: "#f8fafc",
+        corSuave: "#cbd5e1",
+        fundo1: "#020617",
+        fundo2: "#0f172a",
+        fundo3: "#1e293b",
+        fundo4: "#334155",
+        primario: "148,163,184",
+        secundario: "56,189,248",
+        destaque: "226,232,240",
+        sombra: "rgba(2,6,23,0.46)",
+        particula: "226,232,240",
+        grid: "148,163,184",
+        caixa: "rgba(15,23,42,0.74)",
+        caixa2: "rgba(30,41,59,0.52)",
+        modoCifrao: false,
+        modoFagulha: false,
+        modoRaio: true,
+        modoChuva: false
+      },
+
+      leonardo: {
+        nome: "MODO LEONARDO",
+        titulo: "OTTO",
+        subtitulo: "",
+        estado: "",
+        falaEntrada: "Modo Leonardo ativado.",
+        corTexto: "#fff7d6",
+        corSuave: "#f7d776",
+        fundo1: "#020617",
+        fundo2: "#09090b",
+        fundo3: "#451a03",
+        fundo4: "#92400e",
+        primario: "251,191,36",
+        secundario: "217,119,6",
+        destaque: "253,224,71",
+        sombra: "rgba(251,191,36,0.52)",
+        particula: "251,191,36",
+        grid: "245,158,11",
+        caixa: "rgba(2,6,23,0.76)",
+        caixa2: "rgba(120,53,15,0.42)",
+        modoCifrao: true,
+        modoFagulha: true,
+        modoRaio: true,
+        modoChuva: true,
+        modoPatinhas: true
+      },
+
+
+      yane: {
+        nome: "MODO YANE",
+        titulo: "OTTO",
+        subtitulo: "",
+        estado: "MODO YANE",
+        falaEntrada: "Modo Yane ativado.",
+        corTexto: "#fff1f8",
+        corSuave: "#ffd6ea",
+        fundo1: "#500724",
+        fundo2: "#831843",
+        fundo3: "#be185d",
+        fundo4: "#f9a8d4",
+        primario: "236,72,153",
+        secundario: "244,114,182",
+        destaque: "251,207,232",
+        sombra: "rgba(244,114,182,0.50)",
+        particula: "251,207,232",
+        grid: "244,114,182",
+        caixa: "rgba(80,7,36,0.72)",
+        caixa2: "rgba(190,24,93,0.42)",
+        modoCifrao: false,
+        modoFagulha: true,
+        modoRaio: false,
+        modoChuva: true,
+        modoYane: true
+      },
+
+      neon: {
+        nome: "MODO NEON",
+        titulo: "OTTO",
+        subtitulo: "INTELIGÊNCIA DIGITAL",
+        estado: "MODO NEON",
+        falaEntrada: "Modo neon ativado.",
+        corTexto: "#ecfeff",
+        corSuave: "#a5f3fc",
+        fundo1: "#020617",
+        fundo2: "#082f49",
+        fundo3: "#164e63",
+        fundo4: "#155e75",
+        primario: "6,182,212",
+        secundario: "34,211,238",
+        destaque: "103,232,249",
+        sombra: "rgba(6,182,212,0.40)",
+        particula: "103,232,249",
+        grid: "34,211,238",
+        caixa: "rgba(8,47,73,0.70)",
+        caixa2: "rgba(14,116,144,0.38)",
+        modoCifrao: false,
+        modoFagulha: true,
+        modoRaio: true,
+        modoChuva: true
+      }
+    };
+
+    function getTema() {
+      return TEMAS[temaAtual] || TEMAS.azul;
+    }
+
+    function atualizarStatusVisual() {
+      statusText.innerText = estadoOtto + (subEstadoOtto ? " • " + subEstadoOtto : "");
+
+      if (processando) {
+        statusDot.style.background = "#f59e0b";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(245,158,11,.16)";
+        return;
+      }
+
+      if (estadoOtto.toLowerCase().includes("erro")) {
+        statusDot.style.background = "#ef4444";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(239,68,68,.16)";
+        return;
+      }
+
+      if (micAtivo) {
+        statusDot.style.background = "#22c55e";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(34,197,94,.14)";
+      } else {
+        statusDot.style.background = "#94a3b8";
+        statusDot.style.boxShadow = "0 0 0 6px rgba(148,163,184,.16)";
+      }
+    }
+
+    function mostrarToast(texto) {
+      clearTimeout(toastTimer);
+
+      toastOtto.innerText = texto;
+      toastOtto.classList.add("ativo");
+
+      toastTimer = setTimeout(function () {
+        toastOtto.classList.remove("ativo");
+      }, 2600);
+    }
+
+    function ajustarCanvas() {
+      escalaPixel = Math.max(
+        1,
+        Math.min(2, window.devicePixelRatio || 1)
+      );
+
+      largura = window.innerWidth;
+      altura = window.innerHeight;
+
+      canvas.width = Math.floor(largura * escalaPixel);
+      canvas.height = Math.floor(altura * escalaPixel);
+
+      canvas.style.width = largura + "px";
+      canvas.style.height = altura + "px";
+
+      ctx.setTransform(
+        escalaPixel,
+        0,
+        0,
+        escalaPixel,
+        0,
+        0
+      );
+
+      centroX = largura / 2;
+      centroY = altura / 2;
+
+      criarElementosVisuais();
+    }
+
+    function criarElementosVisuais() {
+      particulas = [];
+      ondas = [];
+      linhas = [];
+      estrelas = [];
+      cifras = [];
+      fagulhas = [];
+      raios = [];
+      chuva = [];
+
+      const mobile = largura < 768;
+      const totalParticulas = mobile ? 62 : 130;
+      const totalLinhas = mobile ? 14 : 32;
+      const totalEstrelas = mobile ? 46 : 96;
+      const totalCifras = mobile ? 24 : 62;
+      const totalFagulhas = mobile ? 30 : 76;
+      const totalRaios = mobile ? 8 : 18;
+      const totalChuva = mobile ? 60 : 150;
+
+      for (let i = 0; i < totalParticulas; i++) {
+        particulas.push({
+          x: Math.random() * largura,
+          y: Math.random() * altura,
+          r: 0.8 + Math.random() * 2.4,
+          vx: -0.25 + Math.random() * 0.5,
+          vy: -0.25 + Math.random() * 0.5,
+          a: 0.12 + Math.random() * 0.32,
+          fase: Math.random() * Math.PI * 2
+        });
+      }
+
+      for (let i = 0; i < totalLinhas; i++) {
+        linhas.push({
+          x1: Math.random() * largura,
+          y1: Math.random() * altura,
+          x2: Math.random() * largura,
+          y2: Math.random() * altura,
+          a: 0.04 + Math.random() * 0.1,
+          v: 0.2 + Math.random() * 0.8
+        });
+      }
+
+      for (let i = 0; i < totalEstrelas; i++) {
+        estrelas.push({
+          angulo: Math.random() * Math.PI * 2,
+          raio: 120 + Math.random() * Math.min(largura, altura) * 0.46,
+          tamanho: 1 + Math.random() * 2.5,
+          velocidade: 0.0008 + Math.random() * 0.0022,
+          alpha: 0.12 + Math.random() * 0.38
+        });
+      }
+
+      for (let i = 0; i < totalCifras; i++) {
+        cifras.push({
+          x: Math.random() * largura,
+          y: Math.random() * altura - altura,
+          texto: Math.random() > 0.32 ? "$" : "R$",
+          tamanho: 18 + Math.random() * 42,
+          velocidade: 0.9 + Math.random() * 2.4,
+          alpha: 0.12 + Math.random() * 0.36,
+          giro: Math.random() * Math.PI * 2,
+          giroVel: -0.01 + Math.random() * 0.02
+        });
+      }
+
+      for (let i = 0; i < totalFagulhas; i++) {
+        fagulhas.push({
+          x: Math.random() * largura,
+          y: Math.random() * altura,
+          tamanho: 1 + Math.random() * 3,
+          velocidade: 0.5 + Math.random() * 1.8,
+          alpha: 0.1 + Math.random() * 0.35,
+          fase: Math.random() * Math.PI * 2
+        });
+      }
+
+      for (let i = 0; i < totalRaios; i++) {
+        raios.push({
+          x: Math.random() * largura,
+          y: Math.random() * altura,
+          comprimento: 80 + Math.random() * 260,
+          velocidade: 1 + Math.random() * 3,
+          alpha: 0.04 + Math.random() * 0.14,
+          inclinacao: -0.45 + Math.random() * 0.9
+        });
+      }
+
+      for (let i = 0; i < totalChuva; i++) {
+        chuva.push({
+          x: Math.random() * largura,
+          y: Math.random() * altura,
+          tamanho: 8 + Math.random() * 26,
+          velocidade: 1.4 + Math.random() * 4,
+          alpha: 0.06 + Math.random() * 0.18
+        });
+      }
+    }
+
+    function arredondarRetangulo(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    function desenharFundo() {
+      const tema = getTema();
+
+      const grad = ctx.createLinearGradient(0, 0, largura, altura);
+
+      grad.addColorStop(0, tema.fundo1);
+      grad.addColorStop(0.32, tema.fundo2);
+      grad.addColorStop(0.68, tema.fundo3);
+      grad.addColorStop(1, tema.fundo4);
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, largura, altura);
+
+      const g1 = ctx.createRadialGradient(
+        largura * 0.18,
+        altura * 0.18,
+        0,
+        largura * 0.18,
+        altura * 0.18,
+        largura * 0.55
+      );
+
+      g1.addColorStop(0, "rgba(" + tema.destaque + ",0.46)");
+      g1.addColorStop(0.42, "rgba(" + tema.destaque + ",0.16)");
+      g1.addColorStop(1, "rgba(" + tema.destaque + ",0)");
+
+      ctx.fillStyle = g1;
+      ctx.fillRect(0, 0, largura, altura);
+
+      const g2 = ctx.createRadialGradient(
+        largura * 0.86,
+        altura * 0.84,
+        0,
+        largura * 0.86,
+        altura * 0.84,
+        largura * 0.48
+      );
+
+      g2.addColorStop(0, "rgba(" + tema.secundario + ",0.40)");
+      g2.addColorStop(0.5, "rgba(" + tema.secundario + ",0.14)");
+      g2.addColorStop(1, "rgba(" + tema.secundario + ",0)");
+
+      ctx.fillStyle = g2;
+      ctx.fillRect(0, 0, largura, altura);
+    }
+
+    function desenharGrade() {
+      const tema = getTema();
+      const espacamento = largura < 768 ? 44 : 58;
+
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = "rgba(" + tema.grid + ",0.20)";
+      ctx.lineWidth = 1;
+
+      for (let x = -espacamento; x <= largura + espacamento; x += espacamento) {
+        ctx.beginPath();
+        ctx.moveTo(x + Math.sin(tempo * 0.008) * 6, 0);
+        ctx.lineTo(x - Math.sin(tempo * 0.008) * 6, altura);
+        ctx.stroke();
+      }
+
+      for (let y = -espacamento; y <= altura + espacamento; y += espacamento) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + Math.cos(tempo * 0.008) * 6);
+        ctx.lineTo(largura, y - Math.cos(tempo * 0.008) * 6);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function desenharParticulas() {
+      const tema = getTema();
+
+      ctx.save();
+
+      particulas.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.fase += 0.018;
+
+        if (p.x < -20) p.x = largura + 20;
+        if (p.x > largura + 20) p.x = -20;
+        if (p.y < -20) p.y = altura + 20;
+        if (p.y > altura + 20) p.y = -20;
+
+        const alpha = p.a + Math.sin(p.fase) * 0.08;
+
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(" + tema.particula + "," + Math.max(0.04, alpha) + ")";
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
+    function desenharLinhas() {
+      const tema = getTema();
+
+      ctx.save();
+
+      linhas.forEach((l) => {
+        l.y1 += l.v * 0.08;
+        l.y2 += l.v * 0.08;
+
+        if (l.y1 > altura + 80) l.y1 = -80;
+        if (l.y2 > altura + 80) l.y2 = -80;
+
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(" + tema.primario + "," + l.a + ")";
+        ctx.lineWidth = 1;
+        ctx.moveTo(l.x1, l.y1);
+        ctx.lineTo(l.x2, l.y2);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    function desenharFagulhas() {
+      const tema = getTema();
+
+      if (!tema.modoFagulha) return;
+
+      ctx.save();
+
+      fagulhas.forEach((f) => {
+        f.y -= f.velocidade;
+        f.x += Math.sin(tempo * 0.025 + f.fase) * 0.45;
+        f.fase += 0.015;
+
+        if (f.y < -20) {
+          f.y = altura + 20;
+          f.x = Math.random() * largura;
+        }
+
+        const alpha = f.alpha + Math.sin(f.fase) * 0.08;
+
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(" + tema.destaque + "," + Math.max(0.04, alpha) + ")";
+        ctx.arc(f.x, f.y, f.tamanho, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
+    function desenharCifroes() {
+      const tema = getTema();
+
+      if (!tema.modoCifrao) return;
+
+      ctx.save();
+
+      cifras.forEach((c) => {
+        c.y += c.velocidade;
+        c.giro += c.giroVel;
+
+        if (c.y > altura + 80) {
+          c.y = -90;
+          c.x = Math.random() * largura;
+          c.tamanho = 18 + Math.random() * 42;
+          c.velocidade = 0.9 + Math.random() * 2.4;
+          c.alpha = 0.12 + Math.random() * 0.36;
+          c.texto = Math.random() > 0.32 ? "$" : "R$";
+        }
+
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.giro);
+
+        ctx.font = "900 " + c.tamanho + "px Inter, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(217,119,6," + c.alpha + ")";
+        ctx.shadowColor = "rgba(251,191,36,0.35)";
+        ctx.shadowBlur = 16;
+        ctx.fillText(c.texto, 0, 0);
+
+        ctx.restore();
+      });
+
+      ctx.restore();
+    }
+
+    function desenharModoLeonardoDetalhes() {
+      const tema = getTema();
+
+      if (!tema.modoPatinhas) return;
+
+      ctx.save();
+
+      const menor = Math.min(largura, altura);
+      const baseY = centroY + Math.max(118, menor * 0.18);
+      const tamanhoMoeda = Math.max(28, Math.min(62, menor * 0.06));
+      const tempoMoeda = tempo * 0.018;
+
+      for (let i = 0; i < 9; i++) {
+        const angulo = tempoMoeda + (i * Math.PI * 2) / 9;
+        const raio = Math.max(150, menor * 0.28) + Math.sin(tempo * 0.016 + i) * 14;
+        const x = centroX + Math.cos(angulo) * raio;
+        const y = centroY + Math.sin(angulo) * raio * 0.36;
+
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(251,191,36,0.18)";
+        ctx.strokeStyle = "rgba(253,224,71,0.38)";
+        ctx.lineWidth = 2;
+        ctx.arc(x, y, tamanhoMoeda * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = "900 " + Math.max(14, tamanhoMoeda * 0.42) + "px Inter, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(255,247,214,0.72)";
+        ctx.fillText(i % 2 === 0 ? "R$" : "$", x, y);
+      }
+
+      ctx.font = "900 " + Math.max(18, Math.min(34, menor * 0.032)) + "px Inter, Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(251,191,36,.55)";
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = "rgba(255,247,214,.92)";
+
+      ctx.restore();
+    }
+
+
+    function desenharModoYaneDetalhes() {
+      const tema = getTema();
+
+      if (!tema.modoYane) return;
+
+      ctx.save();
+
+      const menor = Math.min(largura, altura);
+      const baseY = centroY + Math.max(118, menor * 0.18);
+      const tempoYane = tempo * 0.018;
+      const raioBase = Math.max(145, menor * 0.27);
+
+      function silhuetaDiamante(x, y, s, alpha) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.62);
+        ctx.lineTo(s * 0.56, -s * 0.10);
+        ctx.lineTo(0, s * 0.68);
+        ctx.lineTo(-s * 0.56, -s * 0.10);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(244,114,182," + (alpha * 0.18) + ")";
+        ctx.strokeStyle = "rgba(190,24,93," + (alpha * 0.62) + ")";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.30, -s * 0.10);
+        ctx.lineTo(0, s * 0.68);
+        ctx.lineTo(s * 0.30, -s * 0.10);
+        ctx.strokeStyle = "rgba(251,207,232," + (alpha * 0.52) + ")";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function silhuetaCoroa(x, y, s, alpha) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.70, s * 0.34);
+        ctx.lineTo(-s * 0.58, -s * 0.22);
+        ctx.lineTo(-s * 0.20, s * 0.06);
+        ctx.lineTo(0, -s * 0.46);
+        ctx.lineTo(s * 0.20, s * 0.06);
+        ctx.lineTo(s * 0.58, -s * 0.22);
+        ctx.lineTo(s * 0.70, s * 0.34);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(251,207,232," + (alpha * 0.20) + ")";
+        ctx.strokeStyle = "rgba(219,39,119," + (alpha * 0.64) + ")";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.62, s * 0.36);
+        ctx.lineTo(s * 0.62, s * 0.36);
+        ctx.strokeStyle = "rgba(190,24,93," + (alpha * 0.70) + ")";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function silhuetaBolsa(x, y, s, alpha) {
+        ctx.save();
+        ctx.translate(x, y);
+        const w = s * 1.05;
+        const h = s * 0.72;
+        const r = s * 0.14;
+        ctx.beginPath();
+        ctx.roundRect(-w / 2, -h / 6, w, h, r);
+        ctx.fillStyle = "rgba(244,114,182," + (alpha * 0.16) + ")";
+        ctx.strokeStyle = "rgba(190,24,93," + (alpha * 0.62) + ")";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, -h / 6, s * 0.28, Math.PI, Math.PI * 2);
+        ctx.strokeStyle = "rgba(251,207,232," + (alpha * 0.62) + ")";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function silhuetaLaco(x, y, s, alpha) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(-s * 0.25, -s * 0.35, -s * 0.72, -s * 0.24, -s * 0.68, s * 0.10);
+        ctx.bezierCurveTo(-s * 0.62, s * 0.42, -s * 0.18, s * 0.30, 0, 0);
+        ctx.bezierCurveTo(s * 0.18, s * 0.30, s * 0.62, s * 0.42, s * 0.68, s * 0.10);
+        ctx.bezierCurveTo(s * 0.72, -s * 0.24, s * 0.25, -s * 0.35, 0, 0);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(251,207,232," + (alpha * 0.20) + ")";
+        ctx.strokeStyle = "rgba(219,39,119," + (alpha * 0.62) + ")";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, s * 0.12, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(190,24,93," + (alpha * 0.55) + ")";
+        ctx.fill();
+        ctx.restore();
+      }
+
+      for (let i = 0; i < 14; i++) {
+        const angulo = tempoYane + (i * Math.PI * 2) / 14;
+        const raio = raioBase + Math.sin(tempo * 0.014 + i) * 16;
+        const x = centroX + Math.cos(angulo) * raio;
+        const y = centroY + Math.sin(angulo) * raio * 0.38;
+        const tam = Math.max(22, Math.min(46, menor * 0.042)) + Math.sin(tempo * 0.022 + i) * 2.8;
+        const alpha = 0.72 + Math.sin(tempo * 0.018 + i) * 0.16;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.sin(tempo * 0.010 + i) * 0.16);
+        ctx.shadowColor = "rgba(244,114,182,.45)";
+        ctx.shadowBlur = 18;
+        ctx.translate(-x, -y);
+
+        if (i % 4 === 0) silhuetaDiamante(x, y, tam, alpha);
+        if (i % 4 === 1) silhuetaCoroa(x, y, tam, alpha);
+        if (i % 4 === 2) silhuetaBolsa(x, y, tam, alpha);
+        if (i % 4 === 3) silhuetaLaco(x, y, tam, alpha);
+
+        ctx.restore();
+      }
+
+      for (let i = 0; i < 22; i++) {
+        const angulo = tempo * 0.006 + i * 0.58;
+        const distancia = Math.max(88, menor * 0.18) + (i % 5) * 18;
+        const x = centroX + Math.cos(angulo) * distancia;
+        const y = centroY + Math.sin(angulo * 1.24) * distancia * 0.34;
+        const s = 5 + (i % 4) * 1.5;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y);
+        ctx.lineTo(x, y + s);
+        ctx.lineTo(x - s, y);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(251,207,232,0.30)";
+        ctx.strokeStyle = "rgba(219,39,119,0.30)";
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      ctx.font = "900 " + Math.max(17, Math.min(32, menor * 0.030)) + "px Inter, Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(244,114,182,.50)";
+      ctx.shadowBlur = 22;
+      ctx.fillStyle = "rgba(255,241,248,.94)";
+
+      ctx.restore();
+    }
+
+    function desenharRaios() {
+      const tema = getTema();
+
+      if (!tema.modoRaio) return;
+
+      ctx.save();
+
+      raios.forEach((r) => {
+        r.y += r.velocidade;
+        r.x += r.inclinacao;
+
+        if (r.y > altura + r.comprimento) {
+          r.y = -r.comprimento;
+          r.x = Math.random() * largura;
+        }
+
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(" + tema.destaque + "," + r.alpha + ")";
+        ctx.lineWidth = 1;
+        ctx.moveTo(r.x, r.y);
+        ctx.lineTo(r.x + r.inclinacao * 40, r.y + r.comprimento);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    function desenharChuva() {
+      const tema = getTema();
+
+      if (!tema.modoChuva) return;
+
+      ctx.save();
+
+      chuva.forEach((p) => {
+        p.y += p.velocidade;
+
+        if (p.y > altura + 30) {
+          p.y = -30;
+          p.x = Math.random() * largura;
+        }
+
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(" + tema.secundario + "," + p.alpha + ")";
+        ctx.lineWidth = 1;
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x, p.y + p.tamanho);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    function desenharNucleo() {
+      const tema = getTema();
+
+      const menor = Math.min(largura, altura);
+      const base = Math.max(120, Math.min(250, menor * 0.22));
+      const respiracao = Math.sin(tempo * 0.035) * 8;
+      const raio = base + respiracao + intensidadeVoz * 16 + pulsoResposta * 18;
+
+      ctx.save();
+
+      for (let i = 0; i < estrelas.length; i++) {
+        const e = estrelas[i];
+
+        e.angulo += e.velocidade * (1 + nivelEnergia * 2.2);
+
+        const dist = e.raio + Math.sin(tempo * 0.01 + i) * 10;
+        const x = centroX + Math.cos(e.angulo) * dist;
+        const y = centroY + Math.sin(e.angulo) * dist * 0.62;
+
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(" + tema.primario + "," + e.alpha + ")";
+        ctx.arc(x, y, e.tamanho, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (let i = 0; i < 5; i++) {
+        const r = raio + i * 34 + Math.sin(tempo * 0.025 + i) * 8;
+
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(" + tema.primario + "," + (0.18 - i * 0.026) + ")";
+        ctx.lineWidth = 1.6;
+        ctx.arc(centroX, centroY, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      for (let i = 0; i < 4; i++) {
+        const rX = raio * (1.18 + i * 0.16);
+        const rY = raio * (0.42 + i * 0.08);
+        const rotacao = tempo * 0.005 * (i % 2 === 0 ? 1 : -1);
+
+        ctx.save();
+        ctx.translate(centroX, centroY);
+        ctx.rotate(rotacao + i * 0.72);
+
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(" + tema.secundario + "," + (0.22 - i * 0.035) + ")";
+        ctx.lineWidth = 1.8;
+        ctx.ellipse(0, 0, rX, rY, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      const nucleoGrad = ctx.createRadialGradient(
+        centroX,
+        centroY,
+        0,
+        centroX,
+        centroY,
+        raio
+      );
+
+      nucleoGrad.addColorStop(0, "rgba(255,255,255,0.96)");
+      nucleoGrad.addColorStop(0.32, "rgba(" + tema.destaque + ",0.38)");
+      nucleoGrad.addColorStop(0.72, "rgba(" + tema.primario + ",0.26)");
+      nucleoGrad.addColorStop(1, "rgba(" + tema.primario + ",0.06)");
+
+      ctx.beginPath();
+      ctx.fillStyle = nucleoGrad;
+      ctx.arc(centroX, centroY, raio, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.strokeStyle = temaAtual === "preto" || temaAtual === "neon"
+        ? "rgba(255,255,255,0.34)"
+        : "rgba(255,255,255,0.88)";
+      ctx.lineWidth = 2;
+      ctx.arc(centroX, centroY, raio * 0.98, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const brilho = ctx.createRadialGradient(
+        centroX - raio * 0.28,
+        centroY - raio * 0.32,
+        0,
+        centroX - raio * 0.28,
+        centroY - raio * 0.32,
+        raio * 0.86
+      );
+
+      brilho.addColorStop(0, "rgba(255,255,255,0.9)");
+      brilho.addColorStop(0.34, "rgba(255,255,255,0.24)");
+      brilho.addColorStop(1, "rgba(255,255,255,0)");
+
+      ctx.beginPath();
+      ctx.fillStyle = brilho;
+      ctx.arc(centroX, centroY, raio, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function quebrarTexto(texto, maxCaracteres) {
+      const palavras = String(texto || "").split(" ");
+      const linhasTexto = [];
+      let atual = "";
+
+      palavras.forEach((palavra) => {
+        const tentativa = atual ? atual + " " + palavra : palavra;
+
+        if (tentativa.length > maxCaracteres) {
+          if (atual) {
+            linhasTexto.push(atual);
+          }
+
+          atual = palavra;
+        } else {
+          atual = tentativa;
+        }
+      });
+
+      if (atual) {
+        linhasTexto.push(atual);
+      }
+
+      return linhasTexto;
+    }
+
+    function desenharTextos() {
+      const tema = getTema();
+
+      const menor = Math.min(largura, altura);
+      const tamanhoTitulo = Math.max(54, Math.min(122, menor * 0.135));
+      const yTitulo = centroY - tamanhoTitulo * 0.12;
+
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      ctx.shadowColor = tema.sombra;
+      ctx.shadowBlur = 30;
+
+      ctx.font = "900 " + tamanhoTitulo + "px Inter, Arial";
+      ctx.fillStyle = tema.corTexto;
+      ctx.fillText(tema.titulo, centroX, yTitulo);
+
+      ctx.shadowBlur = 0;
+
+      ctx.font = "800 " + Math.max(12, Math.min(18, menor * 0.018)) + "px Inter, Arial";
+      ctx.fillStyle = "rgba(" + tema.primario + ",0.86)";
+      ctx.fillText(tema.subtitulo, centroX, yTitulo + tamanhoTitulo * 0.55);
+
+      ctx.font = "800 " + Math.max(11, Math.min(15, menor * 0.016)) + "px Inter, Arial";
+      ctx.fillStyle = tema.corSuave;
+      ctx.fillText(estadoOtto, centroX, yTitulo + tamanhoTitulo * 0.86);
+
+      ctx.font = "600 " + Math.max(10, Math.min(14, menor * 0.015)) + "px Inter, Arial";
+      ctx.fillStyle = tema.corSuave;
+      ctx.fillText(subEstadoOtto, centroX, yTitulo + tamanhoTitulo * 1.12);
+
+      const larguraTexto = Math.min(largura * 0.82, 940);
+      const maxChars = largura < 768 ? 36 : 86;
+
+      let textoInferior = "";
+
+      if (processando) {
+        textoInferior = "Estou analisando sua solicitação.";
+      } else if (ultimaRespostaOtto) {
+        textoInferior = ultimaRespostaOtto;
+      } else if (ultimoTextoUsuario) {
+        textoInferior = "Recebido: " + ultimoTextoUsuario;
+      } else {
+        textoInferior = "Fale naturalmente. O OTTO escuta, interpreta e envia tudo para a central inteligente.";
+      }
+
+      const linhasTexto = quebrarTexto(textoInferior, maxChars).slice(0, 4);
+      const alturaCaixa = 34 + linhasTexto.length * 24;
+      const xCaixa = centroX - larguraTexto / 2;
+      const yCaixa = altura - alturaCaixa - Math.max(52, altura * 0.07);
+
+      ctx.save();
+      ctx.globalAlpha = 0.96;
+      arredondarRetangulo(xCaixa, yCaixa, larguraTexto, alturaCaixa, 26);
+
+      const gradCaixa = ctx.createLinearGradient(
+        xCaixa,
+        yCaixa,
+        xCaixa + larguraTexto,
+        yCaixa + alturaCaixa
+      );
+
+      gradCaixa.addColorStop(0, tema.caixa);
+      gradCaixa.addColorStop(1, tema.caixa2);
+
+      ctx.fillStyle = gradCaixa;
+      ctx.fill();
+
+      ctx.strokeStyle = temaAtual === "preto" || temaAtual === "neon"
+        ? "rgba(255,255,255,0.22)"
+        : "rgba(255,255,255,0.72)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.font = "700 " + Math.max(13, Math.min(16, menor * 0.016)) + "px Inter, Arial";
+      ctx.fillStyle = tema.corTexto;
+      ctx.textBaseline = "top";
+
+      linhasTexto.forEach((linha, index) => {
+        ctx.fillText(
+          linha,
+          centroX,
+          yCaixa + 18 + index * 24
+        );
+      });
+
+      ctx.restore();
+      ctx.restore();
+    }
+
+    function desenharOndas() {
+      const tema = getTema();
+
+      ctx.save();
+
+      ondas = ondas.filter((o) => o.alpha > 0.01);
+
+      ondas.forEach((o) => {
+        o.r += o.vel;
+        o.alpha *= 0.965;
+
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(" + tema.primario + "," + o.alpha + ")";
+        ctx.lineWidth = o.largura;
+        ctx.arc(centroX, centroY, o.r, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    function criarOnda(forca) {
+      ondas.push({
+        r: Math.max(80, Math.min(largura, altura) * 0.15),
+        vel: 2.8 + forca * 5,
+        alpha: 0.28 + forca * 0.18,
+        largura: 1.4 + forca * 2
+      });
+    }
+
+
+
+
+
+
+
+
+function dispararEfeitoFalaDetectada(forca = 1) {
+  try {
+    if (!ottoShell) return;
+
+    const agora = Date.now();
+
+    if (agora - ultimoEfeitoFala < 420) {
+      intensidadeVoz = Math.min(1.8, intensidadeVoz + 0.35);
+      pulsoResposta = Math.min(1.6, pulsoResposta + 0.28);
+      nivelEnergia = Math.min(1, nivelEnergia + 0.18);
+      return;
+    }
+
+    ultimoEfeitoFala = agora;
+
+    ottoShell.classList.remove("fala-detectada");
+
+    void ottoShell.offsetWidth;
+
+    ottoShell.classList.add("fala-detectada");
+
+    intensidadeVoz = Math.max(intensidadeVoz, 1.45 * forca);
+    pulsoResposta = Math.max(pulsoResposta, 1.2 * forca);
+    nivelEnergia = 1;
+
+    criarOnda(1);
+    criarOnda(0.82);
+    criarOnda(0.62);
+
+    clearTimeout(efeitoFalaTimer);
+
+    efeitoFalaTimer = setTimeout(function () {
+      ottoShell.classList.remove("fala-detectada");
+    }, 1150);
+  } catch (erro) {
+    console.error("Erro no efeito visual de fala:", erro);
+  }
+}
+
+
+
+
+
+
+
+
+
+    
+    function animar() {
+      frameAtual = requestAnimationFrame(animar);
+
+      tempo += 1;
+
+      intensidadeVoz *= 0.92;
+      pulsoResposta *= 0.94;
+
+      nivelEnergia += ((processando ? 0.92 : micAtivo ? 0.68 : 0.38) - nivelEnergia) * 0.035;
+
+      if (tempo % 58 === 0) {
+        criarOnda(processando ? 0.9 : 0.35);
+      }
+
+      desenharFundo();
+      desenharGrade();
+      desenharLinhas();
+      desenharRaios();
+      desenharChuva();
+      desenharParticulas();
+      desenharFagulhas();
+      desenharCifroes();
+      desenharModoLeonardoDetalhes();
+      desenharModoYaneDetalhes();
+      desenharOndas();
+      desenharNucleo();
+      desenharTextos();
+    }
+
+    function obterSaudacao() {
+      const hora = new Date().getHours();
+
+      if (hora < 12) {
+        return "Bom dia";
+      }
+
+      if (hora < 18) {
+        return "Boa tarde";
+      }
+
+      return "Boa noite";
+    }
+
+    function atualizarEstado(texto, subtitulo) {
+      estadoOtto = texto || estadoOtto;
+      subEstadoOtto = subtitulo || subEstadoOtto;
+      atualizarStatusVisual();
+    }
+
+    function normalizarTexto(texto) {
+      return String(texto || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+    }
+
+    function detectarComandoVisual(texto) {
+      const t = normalizarTexto(texto);
+
+      if (
+        t.includes("otto estou estressado") ||
+        t.includes("estou estressado") ||
+        t.includes("to estressado") ||
+        t.includes("estou nervoso") ||
+        t.includes("to nervoso") ||
+        t.includes("modo vermelho") ||
+        t.includes("modo controle")
+      ) {
+        return "vermelho";
+      }
+
+      if (
+        t.includes("vamos pra cima") ||
+        t.includes("vamo pra cima") ||
+        t.includes("vamos para cima") ||
+        t.includes("modo dourado") ||
+        t.includes("modo resultado") ||
+        t.includes("bora vender") ||
+        t.includes("bora faturar")
+      ) {
+        return "dourado";
+      }
+
+      if (
+        t.includes("modo operacao") ||
+        t.includes("modo operacional") ||
+        t.includes("modo verde") ||
+        t.includes("controle operacional")
+      ) {
+        return "verde";
+      }
+
+      if (
+        t.includes("modo estrategia") ||
+        t.includes("modo estrategico") ||
+        t.includes("modo roxo") ||
+        t.includes("analise estrategica")
+      ) {
+        return "roxo";
+      }
+
+
+      if (
+        t.includes("modo yane") ||
+        t.includes("otto modo yane") ||
+        t.includes("ativar modo yane") ||
+        t.includes("modo da yane") ||
+        t.includes("modo rosa") ||
+        t.includes("modo princesa") ||
+        t.includes("glamour") ||
+        t.includes("modo glamour")
+      ) {
+        return "yane";
+      }
+
+      if (
+        t.includes("modo leonardo") ||
+        t.includes("otto modo leonardo") ||
+        t.includes("ativar modo leonardo") ||
+        t.includes("modo do leonardo") ||
+        t.includes("modo dono") 
+      ) {
+        return "leonardo";
+      }
+
+      if (
+        t.includes("modo executivo") ||
+        t.includes("modo preto") ||
+        t.includes("modo diretoria") ||
+        t.includes("modo premium")
+      ) {
+        return "preto";
+      }
+
+      if (
+        t.includes("modo neon") ||
+        t.includes("modo digital") ||
+        t.includes("modo tecnologia")
+      ) {
+        return "neon";
+      }
+
+      if (
+        t.includes("modo padrao") ||
+        t.includes("voltar ao normal") ||
+        t.includes("volta ao normal") ||
+        t.includes("tema azul") ||
+        t.includes("modo azul")
+      ) {
+        return "azul";
+      }
+
+      return null;
+    }
+
+
+
+
+    function detectarComandoPrint(texto) {
+  const t = normalizarTexto(texto);
+
+  return (
+    t === "print screen" ||
+    t === "print" ||
+    t === "tirar print" ||
+    t === "tira print" ||
+    t === "salvar print" ||
+    t === "salva print" ||
+    t === "print da tela" ||
+    t === "capturar tela" ||
+    t === "captura de tela" ||
+    t.includes("print screen") ||
+    t.includes("tirar print") ||
+    t.includes("tira print") ||
+    t.includes("salvar print") ||
+    t.includes("salva print") ||
+    t.includes("print da tela") ||
+    t.includes("capturar tela") ||
+    t.includes("captura de tela")
+  );
+}
+
+function gerarNomePrintOtto() {
+  const agora = new Date();
+
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  const hora = String(agora.getHours()).padStart(2, "0");
+  const minuto = String(agora.getMinutes()).padStart(2, "0");
+  const segundo = String(agora.getSeconds()).padStart(2, "0");
+
+  return "OTTO_PRINT_" + ano + "-" + mes + "-" + dia + "_" + hora + "-" + minuto + "-" + segundo + ".png";
+}
+
+async function tirarPrintScreenPorVoz() {
+  try {
+    atualizarEstado("PRINT SCREEN", "Capturando a janela atual do OTTO");
+    mostrarToast("Tirando print da janela atual...");
+
+    if (typeof html2canvas === "undefined") {
+      mostrarToast("Erro: html2canvas não carregou. Coloque o script no HEAD.");
+      atualizarEstado("ERRO NO PRINT", "Biblioteca html2canvas não carregada");
+      garantirMicrofoneAtivo();
+      return;
+    }
+
+    const alvo = document.querySelector(".otto-shell") || document.body;
+
+    await new Promise(function (resolve) {
+      requestAnimationFrame(function () {
+        setTimeout(resolve, 120);
+      });
+    });
+
+    const canvasPrint = await html2canvas(alvo, {
+      backgroundColor: null,
+      scale: Math.min(2, window.devicePixelRatio || 1),
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      scrollX: 0,
+      scrollY: 0,
+      ignoreElements: function (elemento) {
+        return elemento && elemento.id === "toastOtto";
+      }
+    });
+
+    const nomeArquivo = gerarNomePrintOtto();
+
+    canvasPrint.toBlob(async function (blob) {
+      if (!blob) {
+        mostrarToast("Não foi possível gerar o arquivo do print.");
+        atualizarEstado("ERRO NO PRINT", "Falha ao gerar imagem");
+        garantirMicrofoneAtivo();
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = nomeArquivo;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 1500);
+
+      ultimaRespostaOtto = "Print salvo: " + nomeArquivo;
+      ultimaRespostaCompleta = "Print salvo: " + nomeArquivo;
+      pulsoResposta = 1;
+
+      mostrarToast("Print salvo na pasta de downloads: " + nomeArquivo);
+
+      atualizarEstado(
+        micAtivo ? "ESCUTANDO" : "PRINT SALVO",
+        micAtivo ? "Print salvo. Microfone ativo continuamente" : "Print salvo com sucesso"
+      );
+
+      await falar("Print salvo.");
+
+      garantirMicrofoneAtivo();
+    }, "image/png", 1);
+
+  } catch (erro) {
+    console.error("Erro ao tirar print da janela:", erro);
+
+    mostrarToast("Não consegui salvar o print da janela atual.");
+    atualizarEstado("ERRO NO PRINT", "Falha ao capturar a janela atual");
+
+    await falar("Não consegui salvar o print.");
+
+    garantirMicrofoneAtivo();
+  }
+}
+
+
+
+    
+    async function ativarTema(novoTema, falarMudanca = true) {
+      if (!TEMAS[novoTema]) return;
+
+      temaAtual = novoTema;
+      document.body.classList.remove("modo-leonardo", "modo-yane");
+      if (novoTema === "leonardo") document.body.classList.add("modo-leonardo");
+      if (novoTema === "yane") document.body.classList.add("modo-yane");
+      if (canvasLayer) canvasLayer.setAttribute("data-tema", novoTema);
+      localStorage.setItem("ottoTemaAtual", novoTema);
+
+      const tema = getTema();
+
+      criarOnda(1);
+      pulsoResposta = 1;
+      intensidadeVoz = 0.8;
+
+      atualizarEstado(
+        tema.estado,
+        tema.subtitulo
+      );
+
+      document.body.style.background =
+        "radial-gradient(circle at 15% 15%, rgba(" + tema.destaque + ", 0.48), transparent 30%), " +
+        "radial-gradient(circle at 85% 80%, rgba(" + tema.secundario + ", 0.40), transparent 34%), " +
+        "linear-gradient(135deg, " + tema.fundo1 + " 0%, " + tema.fundo2 + " 38%, " + tema.fundo3 + " 100%)";
+
+      glowTop.style.background = "rgba(" + tema.destaque + ", 0.42)";
+      glowBottom.style.background = "rgba(" + tema.secundario + ", 0.35)";
+      btnSom.style.color = tema.corTexto;
+      btnMic.style.color = tema.corTexto;
+
+      if (novoTema === "azul") {
+        btnSom.style.color = "#1d4ed8";
+        btnMic.style.color = "#1d4ed8";
+      }
+
+      if (novoTema === "vermelho") {
+        btnSom.style.color = "#b91c1c";
+        btnMic.style.color = "#b91c1c";
+      }
+
+      if (novoTema === "dourado") {
+        btnSom.style.color = "#b45309";
+        btnMic.style.color = "#b45309";
+      }
+
+      if (novoTema === "verde") {
+        btnSom.style.color = "#047857";
+        btnMic.style.color = "#047857";
+      }
+
+      if (novoTema === "roxo") {
+        btnSom.style.color = "#6d28d9";
+        btnMic.style.color = "#6d28d9";
+      }
+
+      if (novoTema === "leonardo") {
+        btnSom.style.color = "#fbbf24";
+        btnMic.style.color = "#fbbf24";
+      }
+
+      if (novoTema === "yane") {
+        btnSom.style.color = "#fce7f3";
+        btnMic.style.color = "#fce7f3";
+      }
+
+      if (novoTema === "preto" || novoTema === "neon") {
+        btnSom.style.color = "#f8fafc";
+        btnMic.style.color = "#f8fafc";
+      }
+
+      ultimaRespostaOtto = tema.falaEntrada;
+      mostrarToast(tema.nome + " ativado");
+
+      if (falarMudanca) {
+        await falar(tema.falaEntrada);
+      }
+    }
+
+    function limparTextoParaFala(texto) {
+      return String(texto || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\*/g, "")
+        .replace(/#/g, "")
+        .replace(/_/g, "")
+        .replace(/\|/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    async function carregarVozes() {
+      await new Promise((resolve) => {
+        const vozesAtuais = speechSynthesis.getVoices();
+
+        if (vozesAtuais && vozesAtuais.length) {
+          resolve();
+          return;
+        }
+
+        speechSynthesis.onvoiceschanged = function () {
+          resolve();
+        };
+
+        setTimeout(resolve, 800);
+      });
+
+      return speechSynthesis.getVoices();
+    }
+
+    async function falar(texto) {
+      if (!vozAtiva) return;
+      if (!texto) return;
+      if (!("speechSynthesis" in window)) return;
+
+      try {
+        const textoFinal = limparTextoParaFala(texto);
+
+        if (!textoFinal) return;
+
+        speechSynthesis.cancel();
+
+        const vozes = await carregarVozes();
+
+        const fala = new SpeechSynthesisUtterance(textoFinal);
+
+ fala.lang = "pt-BR";
+fala.rate = 1.05;
+fala.pitch = 0.55;
+fala.volume = 1;
+
+const vozesMasculinas = [
+  "antonio",
+  "antônio",
+  "daniel",
+  "felipe",
+  "thiago",
+  "joao",
+  "joão",
+  "lucas",
+  "male",
+  "mascul",
+  "masculina",
+  "masculino"
+];
+
+let vozEscolhida =
+  vozes.find((voz) =>
+    voz.lang === "pt-BR" &&
+    vozesMasculinas.some((nome) =>
+      voz.name.toLowerCase().includes(nome)
+    )
+  ) ||
+  vozes.find((voz) =>
+    voz.lang.toLowerCase().startsWith("pt") &&
+    vozesMasculinas.some((nome) =>
+      voz.name.toLowerCase().includes(nome)
+    )
+  ) ||
+  vozes.find((voz) =>
+    voz.lang === "pt-BR" &&
+    !voz.name.toLowerCase().includes("female") &&
+    !voz.name.toLowerCase().includes("femin")
+  ) ||
+  vozes.find((voz) =>
+    voz.lang.toLowerCase().startsWith("pt") &&
+    !voz.name.toLowerCase().includes("female") &&
+    !voz.name.toLowerCase().includes("femin")
+  ) ||
+  vozes.find((voz) =>
+    voz.lang === "pt-BR"
+  ) ||
+  vozes.find((voz) =>
+    voz.lang.toLowerCase().includes("pt")
+  ) ||
+  null;
+        if (vozEscolhida) {
+          fala.voice = vozEscolhida;
+        }
+
+        fala.onstart = function () {
+          falandoAgora = true;
+          ignorarResultadoAte = Date.now() + 1200;
+          intensidadeVoz = 0.9;
+          atualizarEstado("FALANDO", "Linguagem contínua");
+        };
+
+        fala.onboundary = function () {
+          intensidadeVoz = Math.min(1, intensidadeVoz + 0.15);
+        };
+
+        fala.onend = function () {
+          falandoAgora = false;
+          ignorarResultadoAte = Date.now() + 900;
+          intensidadeVoz = 0.2;
+
+          if (!processando) {
+            atualizarEstado(
+              micAtivo ? "ESCUTANDO" : "MICROFONE DESLIGADO",
+              micAtivo ? "Microfone ativo continuamente" : "Ative o microfone"
+            );
+          }
+
+          garantirMicrofoneAtivo();
+        };
+
+        fala.onerror = function () {
+          falandoAgora = false;
+          ignorarResultadoAte = Date.now() + 900;
+
+          atualizarEstado("VOZ INDISPONÍVEL", "O navegador bloqueou ou interrompeu a fala");
+
+          garantirMicrofoneAtivo();
+        };
+
+        speechSynthesis.speak(fala);
+      } catch (erro) {
+        falandoAgora = false;
+        console.error("Erro ao falar:", erro);
+        garantirMicrofoneAtivo();
+      }
+    }
+
+    async function liberarAudioEEntrada() {
+      try {
+        if ("speechSynthesis" in window) {
+          const desbloqueio = new SpeechSynthesisUtterance(" ");
+          desbloqueio.volume = 0;
+          desbloqueio.lang = "pt-BR";
+          speechSynthesis.speak(desbloqueio);
+          audioLiberado = true;
+        }
+
+        audioPermission.classList.remove("mostrar");
+
+        garantirMicrofoneAtivo();
+
+        const nome =
+          usuarioLogado.nome ||
+          usuarioLogado.usuario ||
+          "diretoria";
+
+        const fraseInicial =
+          obterSaudacao() +
+          ", " +
+          nome +
+          ".";
+
+        ultimaRespostaOtto = fraseInicial;
+        pulsoResposta = 1;
+
+        await falar(fraseInicial);
+      } catch (erro) {
+        console.error("Erro ao liberar áudio:", erro);
+      }
+    }
+
+    function prepararReconhecimento() {
+      if (!SpeechRecognition) {
+        atualizarEstado(
+          "MICROFONE INDISPONÍVEL",
+          "Este navegador não suporta reconhecimento de voz"
+        );
+
+        btnMic.classList.add("off");
+        btnMic.classList.remove("active-pulse");
+
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+
+  recognition.lang = "pt-BR";
+recognition.continuous = true;
+recognition.interimResults = true;
+recognition.maxAlternatives = 1;
+
+recognition.onstart = function () {
+  reconhecimentoRodando = true;
+  paradaManualMicrofone = false;
+
+  if (micAtivo && !processando && !falandoAgora) {
+    atualizarEstado("ESCUTANDO", "Microfone ativo continuamente");
+  }
+};
+
+recognition.onspeechstart = function () {
+  if (!micAtivo) return;
+
+  const agora = Date.now();
+
+  if (falandoAgora || agora < ignorarResultadoAte) {
+    return;
+  }
+
+  atualizarEstado("OUVINDO FALA", "OTTO detectou sua voz");
+
+  dispararEfeitoFalaDetectada(1);
+};
+
+recognition.onsoundstart = function () {
+  if (!micAtivo) return;
+
+  const agora = Date.now();
+
+  if (falandoAgora || agora < ignorarResultadoAte) {
+    return;
+  }
+
+  intensidadeVoz = Math.max(intensidadeVoz, 0.45);
+  pulsoResposta = Math.max(pulsoResposta, 0.35);
+};
+
+recognition.onspeechend = function () {
+  if (!micAtivo) return;
+
+  intensidadeVoz = Math.max(intensidadeVoz, 0.35);
+};
+
+recognition.onresult = function (event) {
+  if (!micAtivo) return;
+
+  const agora = Date.now();
+
+  if (falandoAgora || agora < ignorarResultadoAte) {
+    return;
+  }
+
+  let textoFinal = "";
+  let textoParcial = "";
+
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    const resultado = event.results[i];
+
+    const texto = String(
+      resultado[0]?.transcript || ""
+    ).trim();
+
+    if (!texto) continue;
+
+    if (resultado.isFinal) {
+      textoFinal += " " + texto;
+    } else {
+      textoParcial += " " + texto;
+    }
+  }
+
+  textoFinal = textoFinal.trim();
+  textoParcial = textoParcial.trim();
+
+  if (textoParcial.length >= 2) {
+    dispararEfeitoFalaDetectada(0.72);
+    atualizarEstado(
+      "OUVINDO FALA",
+      "Captando comando"
+    );
+    return;
+  }
+
+  const texto = textoFinal.trim();
+
+  if (texto.length < 2) return;
+
+  ultimoTextoUsuario = texto;
+  ultimaRespostaOtto = "";
+
+  dispararEfeitoFalaDetectada(1);
+
+  if (detectarComandoPrint(texto)) {
+    tirarPrintScreenPorVoz();
+    garantirMicrofoneAtivo();
+    return;
+  }
+
+  const temaDetectado = detectarComandoVisual(texto);
+
+  if (temaDetectado) {
+    ativarTema(temaDetectado, true);
+    garantirMicrofoneAtivo();
+    return;
+  }
+
+  enviarPergunta(texto);
+};
+
+      recognition.onerror = function (event) {
+        reconhecimentoRodando = false;
+
+        if (
+          event.error === "not-allowed" ||
+          event.error === "service-not-allowed"
+        ) {
+          atualizarEstado(
+            "PERMISSÃO NECESSÁRIA",
+            "Libere o microfone no navegador para usar o OTTO"
+          );
+
+          audioPermission.classList.add("mostrar");
+          return;
+        }
+
+        if (event.error === "no-speech") {
+          atualizarEstado(
+            "ESCUTANDO",
+            "Microfone ativo continuamente"
+          );
+
+          garantirMicrofoneAtivo();
+          return;
+        }
+
+        garantirMicrofoneAtivo();
+      };
+
+      recognition.onend = function () {
+        reconhecimentoRodando = false;
+
+        if (paradaManualMicrofone) {
+          return;
+        }
+
+        garantirMicrofoneAtivo();
+      };
+    }
+
+    function iniciarMicrofone() {
+      if (!recognition) return;
+      if (!micAtivo) return;
+      if (reconhecimentoRodando) return;
+
+      try {
+        paradaManualMicrofone = false;
+        recognition.start();
+      } catch (erro) {
+        console.warn("Microfone já estava iniciado ou bloqueado:", erro);
+      }
+    }
+
+    function garantirMicrofoneAtivo() {
+      if (!recognition) return;
+      if (!micAtivo) return;
+      if (reconhecimentoRodando) return;
+
+      clearTimeout(reiniciarMicrofoneTimer);
+
+      reiniciarMicrofoneTimer = setTimeout(function () {
+        iniciarMicrofone();
+      }, 350);
+    }
+
+    function pararMicrofone(manual = true) {
+      if (!recognition) return;
+
+      try {
+        paradaManualMicrofone = manual;
+        recognition.stop();
+      } catch (erro) {
+        console.warn("Erro ao parar microfone:", erro);
+      }
+
+      reconhecimentoRodando = false;
+    }
+
+    function atualizarBotoes() {
+      if (vozAtiva) {
+        btnSom.classList.remove("off");
+        btnSom.classList.add("active-pulse");
+        btnSom.innerText = "🔊";
+      } else {
+        btnSom.classList.add("off");
+        btnSom.classList.remove("active-pulse");
+        btnSom.innerText = "🔇";
+      }
+
+      if (micAtivo) {
+        btnMic.classList.remove("off");
+        btnMic.classList.add("active-pulse");
+        btnMic.innerText = "🎤";
+      } else {
+        btnMic.classList.add("off");
+        btnMic.classList.remove("active-pulse");
+        btnMic.innerText = "🚫";
+      }
+
+      atualizarStatusVisual();
+    }
+
+    btnSom.addEventListener("click", async function () {
+      vozAtiva = !vozAtiva;
+      localStorage.setItem("ottoVozAtiva", vozAtiva ? "1" : "0");
+      atualizarBotoes();
+
+      if (vozAtiva) {
+        await liberarAudioEEntrada();
+      } else {
+        if ("speechSynthesis" in window) {
+          speechSynthesis.cancel();
+        }
+
+        falandoAgora = false;
+        ignorarResultadoAte = Date.now() + 500;
+
+        atualizarEstado(
+          micAtivo ? "ESCUTANDO" : "VOZ DESLIGADA",
+          micAtivo ? "Microfone ativo continuamente" : "Som e microfone desligados"
+        );
+
+        garantirMicrofoneAtivo();
+      }
+    });
+
+    btnMic.addEventListener("click", async function () {
+      micAtivo = !micAtivo;
+      localStorage.setItem("ottoMicAtivo", micAtivo ? "1" : "0");
+      atualizarBotoes();
+
+      if (micAtivo) {
+        await liberarAudioEEntrada();
+        garantirMicrofoneAtivo();
+        atualizarEstado("ESCUTANDO", "Microfone ativo continuamente");
+      } else {
+        pararMicrofone(true);
+        atualizarEstado("MICROFONE DESLIGADO", "Toque no botão de microfone para falar novamente");
+      }
+    });
+
+    async function buscarContexto() {
+      try {
+        const { data, error } = await supabaseClient
+          .from("conversas_otto_central")
+          .select("pergunta,resposta")
+          .eq("usuario_id", usuarioLogado.id)
+          .order("criado_em", { ascending: false })
+          .limit(20);
+
+        if (error) {
+          console.error("Erro ao buscar contexto:", error);
+          return "";
+        }
+
+        return (data || [])
+          .reverse()
+          .map(function (item) {
+            return "USUÁRIO: " + (item.pergunta || "") + "\nIA: " + (item.resposta || "");
+          })
+          .join("\n\n");
+      } catch (erro) {
+        console.error("Erro no contexto:", erro);
+        return "";
+      }
+    }
+
+    async function salvarConversa(pergunta, resposta) {
+      try {
+        await supabaseClient
+          .from("conversas_otto_central")
+          .insert({
+            usuario_id: usuarioLogado.id,
+            usuario: usuarioLogado.usuario || "",
+            nome: usuarioLogado.nome || "",
+            empresa: usuarioLogado.empresa || "",
+            pergunta: pergunta,
+            resposta: resposta
+          });
+      } catch (erro) {
+        console.error("Erro ao salvar conversa:", erro);
+      }
+    }
+
+    async function carregarHistorico() {
+      try {
+        const { data, error } = await supabaseClient
+          .from("conversas_otto_central")
+          .select("*")
+          .eq("usuario_id", usuarioLogado.id)
+          .order("criado_em", { ascending: true })
+          .limit(100);
+
+        if (error) {
+          console.error(error);
+          return;
+        }
+
+        chat.innerHTML = "";
+
+        if (data && data.length) {
+          const ultimo = data[data.length - 1];
+
+          if (ultimo.resposta) {
+            try {
+              const obj = JSON.parse(ultimo.resposta);
+
+              if (obj && (obj.resposta || obj.mensagem || obj.texto || obj.answer || obj.fala)) {
+                ultimaRespostaOtto =
+                  obj.fala ||
+                  obj.resposta ||
+                  obj.mensagem ||
+                  obj.texto ||
+                  obj.answer ||
+                  "";
+              } else {
+                ultimaRespostaOtto = ultimo.resposta;
+              }
+            } catch (erro) {
+              ultimaRespostaOtto = ultimo.resposta;
+            }
+          }
+        }
+
+      } catch (erro) {
+        console.error(erro);
+      }
+    }
+
+function escaparHTML(valor) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+  function sanitizarHTML(html) {
+  const template = document.createElement("template");
+
+  template.innerHTML = String(html || "");
+
+  template.content
+    .querySelectorAll("script, iframe, object, embed, link, meta")
+    .forEach((el) => {
+      el.remove();
+    });
+
+  template.content
+    .querySelectorAll("*")
+    .forEach((el) => {
+      Array.from(el.attributes).forEach((attr) => {
+        const nome = attr.name.toLowerCase();
+        const valor = String(attr.value || "").toLowerCase();
+
+        if (nome.startsWith("on")) {
+          el.removeAttribute(attr.name);
+        }
+
+        if (
+          (nome === "href" || nome === "src") &&
+          valor.startsWith("javascript:")
+        ) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+
+  return template.innerHTML;
+}
+   function normalizarPayloadResposta(data) {
+  const payload = data || {};
+
+  const bruto =
+    payload;
+
+  const respostaTexto =
+    payload.respostaTexto ||
+    payload.resposta ||
+    payload.mensagem ||
+    payload.texto ||
+    payload.answer ||
+    payload.fala ||
+    payload?.resultado?.respostaTexto ||
+    payload?.resultado?.resposta ||
+    payload?.resultado?.mensagem ||
+    "";
+
+  const fala =
+    payload.fala ||
+    payload.respostaTexto ||
+    payload.resposta ||
+    payload.mensagem ||
+    payload.texto ||
+    payload?.resultado?.fala ||
+    payload?.resultado?.respostaTexto ||
+    payload?.resultado?.resposta ||
+    respostaTexto ||
+    "Resposta gerada.";
+
+  let canvasApi =
+    payload.canvas ||
+    payload?.resultado?.canvas ||
+    payload.ui ||
+    payload.layout ||
+    null;
+
+  const dados =
+    payload.dados ||
+    payload?.resultado?.dados ||
+    payload?.agente?.dados ||
+    payload?.agente?.data?.dados ||
+    null;
+
+  const graficosBruto =
+    payload.graficos ||
+    payload.grafico ||
+    payload.charts ||
+    payload.chart ||
+    payload?.resultado?.graficos ||
+    payload?.resultado?.grafico ||
+    payload?.dados?.graficos ||
+    payload?.dados?.grafico ||
+    payload?.agente?.graficos ||
+    payload?.agente?.data?.graficos ||
+    null;
+
+  const graficos =
+    Array.isArray(graficosBruto)
+      ? graficosBruto
+      : graficosBruto
+        ? [graficosBruto]
+        : [];
+
+  const tabela =
+    payload.tabela ||
+    payload?.resultado?.tabela ||
+    payload?.dados?.tabela ||
+    null;
+
+  const tabelas =
+    payload.tabelas ||
+    payload?.resultado?.tabelas ||
+    payload?.dados?.tabelas ||
+    null;
+
+  const cards =
+    payload.cards ||
+    payload?.resultado?.cards ||
+    payload?.dados?.cards ||
+    null;
+
+  const html =
+    payload.html ||
+    payload?.resultado?.html ||
+    payload?.dados?.html ||
+    null;
+
+  const titulo =
+    payload.titulo ||
+    payload.title ||
+    payload?.resultado?.titulo ||
+    payload?.resultado?.title ||
+    "Resultado";
+
+  const subtitulo =
+    payload.subtitulo ||
+    payload.descricao ||
+    payload?.resultado?.subtitulo ||
+    payload?.resultado?.descricao ||
+    "Resposta organizada pela API";
+
+  if (!canvasApi && (graficos.length || tabela || tabelas || cards || html)) {
+    canvasApi = {
+      kicker: "OTTO RESULTADO",
+      titulo,
+      subtitulo,
+      texto: respostaTexto,
+      html,
+      cards,
+      tabela,
+      tabelas,
+      graficos,
+      dados,
+      estilo: payload.estilo || {
+        tema: temaAtual || "azul"
+      }
+    };
+  }
+
+  if (canvasApi) {
+    if (!canvasApi.graficos && graficos.length) {
+      canvasApi.graficos = graficos;
+    }
+
+    if (!canvasApi.dados && dados) {
+      canvasApi.dados = dados;
+    }
+
+    if (!canvasApi.tabela && tabela) {
+      canvasApi.tabela = tabela;
+    }
+
+    if (!canvasApi.tabelas && tabelas) {
+      canvasApi.tabelas = tabelas;
+    }
+
+    if (!canvasApi.cards && cards) {
+      canvasApi.cards = cards;
+    }
+
+    if (!canvasApi.html && html) {
+      canvasApi.html = html;
+    }
+
+    if (!canvasApi.texto && respostaTexto) {
+      canvasApi.texto = respostaTexto;
+    }
+
+    if (!canvasApi.titulo) {
+      canvasApi.titulo = titulo;
+    }
+
+    if (!canvasApi.subtitulo) {
+      canvasApi.subtitulo = subtitulo;
+    }
+
+    if (!canvasApi.estilo) {
+      canvasApi.estilo = {
+        tema: temaAtual || "azul"
+      };
+    }
+  }
+
+  return {
+    bruto,
+    respostaTexto: String(respostaTexto || "Sem resposta."),
+    fala: String(fala || respostaTexto || "Resposta gerada."),
+    canvas: canvasApi,
+    dados,
+    graficos,
+    tabela,
+    tabelas,
+    cards,
+    html
+  };
+}
+    function fecharResultado() {
+      resultadoLayer.classList.remove("ativo");
+
+      graficosResultado.forEach((grafico) => {
+        try {
+          grafico.destroy();
+        } catch (erro) {}
+      });
+
+      graficosResultado = [];
+      resultadoContent.innerHTML = "";
+
+      atualizarEstado(
+        micAtivo ? "ESCUTANDO" : "RESULTADO FECHADO",
+        micAtivo ? "Microfone ativo continuamente" : "Canvas pronto para novas operações"
+      );
+
+      garantirMicrofoneAtivo();
+    }
+
+    function abrirResultado() {
+      resultadoLayer.classList.add("ativo");
+    }
+
+    function limparResultadoVisual() {
+      fecharResultado();
+      ultimaRespostaOtto = "";
+      ultimaRespostaCompleta = "";
+      mostrarToast("Resultado limpo");
+    }
+
+    async function copiarResultado() {
+      try {
+        const texto = resultadoContent.innerText || ultimaRespostaCompleta || ultimaRespostaOtto || "";
+
+        if (!texto.trim()) {
+          mostrarToast("Não há resultado para copiar");
+          return;
+        }
+
+        await navigator.clipboard.writeText(texto);
+        mostrarToast("Resultado copiado");
+      } catch (erro) {
+        console.error("Erro ao copiar:", erro);
+        mostrarToast("Não foi possível copiar");
+      }
+    }
+
+    function aplicarEstiloResultado(estilo) {
+      const temaPermitido = [
+        "azul",
+        "escuro",
+        "dourado",
+        "vermelho",
+        "verde",
+        "roxo",
+        "preto",
+        "executivo",
+        "leonardo",
+        "yane"
+      ];
+
+      const temaInformado = estilo && estilo.tema
+        ? String(estilo.tema || "").toLowerCase()
+        : temaAtual;
+
+      const temaFinal = temaPermitido.includes(temaInformado)
+        ? temaInformado
+        : temaPermitido.includes(temaAtual)
+          ? temaAtual
+          : "azul";
+
+      resultadoBox.dataset.tema = temaFinal;
+
+      if (estilo && estilo.destaque) {
+        resultadoBox.style.setProperty("--cor-destaque-api", estilo.destaque);
+        resultadoKicker.style.color = estilo.destaque;
+      } else {
+        resultadoKicker.style.color = "";
+      }
+    }
+
+    function renderizarTextoSimples(texto) {
+      const partes = String(texto || "")
+        .split(/\n{2,}/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      if (!partes.length) {
+        return "<p>Sem resposta.</p>";
+      }
+
+      return partes
+        .map((p) => {
+          const linha = escaparHTML(p)
+            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+            .replace(/\n/g, "<br>");
+
+          return "<p>" + linha + "</p>";
+        })
+        .join("");
+    }
+
+    function renderizarCards(cards) {
+      if (!Array.isArray(cards) || !cards.length) return "";
+
+      return `
+        <div class="resultado-grid">
+          ${cards.map((card) => {
+            return `
+              <div class="resultado-card">
+                <div class="resultado-card-label">${escaparHTML(card.label || card.titulo || card.nome || "")}</div>
+                <div class="resultado-card-valor">${escaparHTML(card.valor ?? card.value ?? "")}</div>
+                ${
+                  card.descricao || card.subtitulo
+                    ? `<div class="resultado-card-desc">${escaparHTML(card.descricao || card.subtitulo)}</div>`
+                    : ""
+                }
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function classeValorTabela(valor) {
+      const texto = normalizarTexto(valor);
+
+      if (
+        texto.includes("acima") ||
+        texto.includes("bom") ||
+        texto.includes("positivo") ||
+        texto.includes("batida") ||
+        texto.includes("atingida") ||
+        texto.includes("ok")
+      ) {
+        return "positivo";
+      }
+
+      if (
+        texto.includes("abaixo") ||
+        texto.includes("distante") ||
+        texto.includes("critico") ||
+        texto.includes("crítico") ||
+        texto.includes("negativo") ||
+        texto.includes("atencao") ||
+        texto.includes("atenção")
+      ) {
+        return "negativo";
+      }
+
+      if (
+        texto.includes("alerta") ||
+        texto.includes("parcial") ||
+        texto.includes("observacao") ||
+        texto.includes("observação")
+      ) {
+        return "alerta";
+      }
+
+      return "";
+    }
+
+    function renderizarTabela(tabela) {
+      if (!tabela) return "";
+
+      const colunas = Array.isArray(tabela.colunas) ? tabela.colunas : [];
+      const linhas = Array.isArray(tabela.linhas) ? tabela.linhas : [];
+
+      if (!colunas.length || !linhas.length) return "";
+
+      return `
+        <div class="resultado-tabela-wrap">
+          <table class="resultado-tabela">
+            <thead>
+              <tr>
+                ${colunas.map((coluna) => `<th>${escaparHTML(coluna.label || coluna.nome || coluna.key || coluna)}</th>`).join("")}
+              </tr>
+            </thead>
+
+            <tbody>
+              ${linhas.map((linha) => {
+                return `
+                  <tr>
+                    ${colunas.map((coluna) => {
+                      const chave = coluna.key || coluna.nome || coluna;
+                      const valor = linha[chave] ?? "";
+                      const classe = classeValorTabela(valor);
+
+                      return `<td class="${classe}">${escaparHTML(valor)}</td>`;
+                    }).join("")}
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderizarGraficos(graficos) {
+      if (!Array.isArray(graficos) || !graficos.length) return "";
+
+      return graficos.map((grafico, index) => {
+        return `
+          <div class="resultado-grafico-box">
+            <div class="resultado-grafico-titulo">${escaparHTML(grafico.titulo || grafico.title || "Gráfico")}</div>
+            <canvas id="resultadoGrafico${index}" class="resultado-grafico-canvas"></canvas>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function montarGraficos(graficos) {
+      if (!Array.isArray(graficos) || !graficos.length) return;
+      if (typeof Chart === "undefined") return;
+
+      graficos.forEach((grafico, index) => {
+        const canvasGrafico = document.getElementById("resultadoGrafico" + index);
+
+        if (!canvasGrafico) return;
+
+        const tipo = grafico.tipo || grafico.type || "bar";
+
+        const labels =
+          Array.isArray(grafico.labels)
+            ? grafico.labels
+            : Array.isArray(grafico.dados)
+              ? grafico.dados.map((item) => item.label || item.nome || item.empresa || item.mes || item.data || "")
+              : [];
+
+        let datasets = [];
+
+        if (Array.isArray(grafico.datasets)) {
+          datasets = grafico.datasets.map((dataset) => {
+            return {
+              ...dataset,
+              borderWidth: dataset.borderWidth || 2,
+              tension: dataset.tension ?? 0.35
+            };
+          });
+        } else if (Array.isArray(grafico.dados)) {
+          datasets = [
+            {
+              label: grafico.label || grafico.titulo || "Valor",
+              data: grafico.dados.map((item) => Number(item.valor || item.value || item.total || item.percentual || 0)),
+              borderWidth: 2,
+              tension: 0.35
+            }
+          ];
+        } else if (Array.isArray(grafico.valores)) {
+          datasets = [
+            {
+              label: grafico.label || grafico.titulo || "Valor",
+              data: grafico.valores.map((valor) => Number(valor || 0)),
+              borderWidth: 2,
+              tension: 0.35
+            }
+          ];
+        }
+
+        const chart = new Chart(canvasGrafico, {
+          type: tipo,
+          data: {
+            labels: labels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false
+            },
+            plugins: {
+              legend: {
+                display: datasets.length > 1 || tipo === "pie" || tipo === "doughnut",
+                labels: {
+                  font: {
+                    family: "Inter",
+                    weight: "700"
+                  }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    const valor = context.raw;
+
+                    if (grafico.formato === "moeda") {
+                      return " " + Number(valor || 0).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL"
+                      });
+                    }
+
+                    if (grafico.formato === "percentual") {
+                      return " " + Number(valor || 0).toLocaleString("pt-BR") + "%";
+                    }
+
+                    return " " + String(valor);
+                  }
+                }
+              }
+            },
+            scales: tipo === "pie" || tipo === "doughnut" || tipo === "polarArea" || tipo === "radar"
+              ? {}
+              : {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      callback: function (valor) {
+                        if (grafico.formato === "moeda") {
+                          return Number(valor || 0).toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                            maximumFractionDigits: 0
+                          });
+                        }
+
+                        if (grafico.formato === "percentual") {
+                          return valor + "%";
+                        }
+
+                        return valor;
+                      }
+                    }
+                  },
+                  x: {
+                    ticks: {
+                      font: {
+                        family: "Inter",
+                        weight: "700"
+                      }
+                    }
+                  }
+                }
+          }
+        });
+
+        graficosResultado.push(chart);
+      });
+    }
+
+ function renderizarRespostaAPI(payloadNormalizado) {
+  const canvasApi =
+    payloadNormalizado.canvas;
+
+  const texto =
+    payloadNormalizado.respostaTexto || "";
+
+  const graficosPayload =
+    Array.isArray(payloadNormalizado.graficos)
+      ? payloadNormalizado.graficos
+      : [];
+
+  graficosResultado.forEach((grafico) => {
+    try {
+      grafico.destroy();
+    } catch (erro) {}
+  });
+
+  graficosResultado = [];
+  resultadoContent.innerHTML = "";
+
+  ultimaRespostaCompleta = texto;
+
+  if (!canvasApi) {
+    resultadoKicker.innerText = "OTTO RESPOSTA";
+    resultadoTitulo.innerText = "Resultado";
+    resultadoSubtitulo.innerText = "Resposta da central administrativa";
+    resultadoBox.dataset.tema = temaAtual || "azul";
+    resultadoContent.innerHTML = renderizarTextoSimples(texto);
+    abrirResultado();
+    return;
+  }
+
+  aplicarEstiloResultado(canvasApi.estilo || {});
+
+  resultadoKicker.innerText =
+    canvasApi.kicker ||
+    canvasApi.categoria ||
+    "OTTO RESULTADO";
+
+  resultadoTitulo.innerText =
+    canvasApi.titulo ||
+    canvasApi.title ||
+    "Resultado";
+
+  resultadoSubtitulo.innerText =
+    canvasApi.subtitulo ||
+    canvasApi.descricao ||
+    "Resposta organizada pela API";
+
+  let htmlFinal = "";
+
+  if (canvasApi.html) {
+    htmlFinal += `
+      <div class="resultado-html">
+        ${sanitizarHTML(canvasApi.html)}
+      </div>
+    `;
+  } else {
+    htmlFinal += renderizarTextoSimples(canvasApi.texto || texto);
+  }
+
+  htmlFinal += renderizarCards(canvasApi.cards);
+
+  htmlFinal += renderizarTabela(canvasApi.tabela);
+
+  if (Array.isArray(canvasApi.tabelas)) {
+    canvasApi.tabelas.forEach((tabela) => {
+      htmlFinal += renderizarTabela(tabela);
+    });
+  }
+
+  const graficosCanvas =
+    Array.isArray(canvasApi.graficos)
+      ? canvasApi.graficos
+      : [];
+
+  const graficosFinais =
+    graficosCanvas.length
+      ? graficosCanvas
+      : graficosPayload;
+
+  htmlFinal += renderizarGraficos(graficosFinais);
+
+  resultadoContent.innerHTML =
+    htmlFinal ||
+    renderizarTextoSimples(texto);
+
+  abrirResultado();
+
+  setTimeout(() => {
+    montarGraficos(graficosFinais);
+  }, 80);
+}
+
+
+
+
+
+function detectarComandoPrint(texto) {
+  const t = normalizarTexto(texto);
+
+  return (
+    t === "print screen" ||
+    t === "print" ||
+    t === "tirar print" ||
+    t === "tira print" ||
+    t === "salvar print" ||
+    t === "salva print" ||
+    t === "capturar tela" ||
+    t === "captura de tela" ||
+    t.includes("print screen") ||
+    t.includes("tirar print") ||
+    t.includes("tira print") ||
+    t.includes("salvar print") ||
+    t.includes("capturar tela") ||
+    t.includes("captura de tela")
+  );
+}
+
+function gerarNomePrintOtto() {
+  const agora = new Date();
+
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  const hora = String(agora.getHours()).padStart(2, "0");
+  const minuto = String(agora.getMinutes()).padStart(2, "0");
+  const segundo = String(agora.getSeconds()).padStart(2, "0");
+
+  return `OTTO_PRINT_${ano}-${mes}-${dia}_${hora}-${minuto}-${segundo}.png`;
+}
+
+
+
+
+function extrairMensagemErroBonita(erro) {
+  const mensagemBruta =
+    erro?.message ||
+    erro?.erro ||
+    erro?.error ||
+    String(erro || "Erro desconhecido");
+
+  let titulo = "Falha na conexão";
+  let subtitulo = "Não foi possível concluir a solicitação";
+  let detalhe = mensagemBruta;
+  let dica = "Verifique a rota, o deploy da Vercel e a resposta da API.";
+
+  if (
+    mensagemBruta.includes("Failed to fetch") ||
+    mensagemBruta.includes("NetworkError") ||
+    mensagemBruta.includes("Load failed") ||
+    mensagemBruta.includes("fetch")
+  ) {
+    titulo = "API fora do ar";
+    subtitulo = "O OTTO não conseguiu acessar a central administrativa";
+    detalhe = "Falha de rede ou API indisponível.";
+    dica = "Verifique se a rota /api/admin-agente está funcionando e se o domínio está online.";
+  }
+
+  if (mensagemBruta.includes("Erro HTTP 404")) {
+    titulo = "Rota não encontrada";
+    subtitulo = "A URL chamada pelo OTTO não existe";
+    detalhe = "Erro HTTP 404.";
+    dica = "Confira se a rota /api/admin-agente existe no projeto e se o deploy foi feito.";
+  }
+
+  if (mensagemBruta.includes("Erro HTTP 401") || mensagemBruta.includes("Erro HTTP 403")) {
+    titulo = "Acesso negado";
+    subtitulo = "A API recusou a autorização enviada pelo OTTO";
+    detalhe = mensagemBruta;
+    dica = "Confira o Authorization/Bearer e as regras de acesso da API.";
+  }
+
+  if (mensagemBruta.includes("Erro HTTP 500")) {
+    titulo = "Erro interno da API";
+    subtitulo = "A central recebeu a pergunta, mas falhou ao processar";
+    detalhe = "Erro HTTP 500.";
+    dica = "Abra os logs da Vercel para ver o erro real da API.";
+  }
+
+  if (mensagemBruta.includes("Unexpected token") || mensagemBruta.includes("JSON")) {
+    titulo = "Resposta inválida da API";
+    subtitulo = "A API respondeu algo que não é JSON válido";
+    detalhe = mensagemBruta;
+    dica = "A rota pode estar retornando HTML, erro bruto ou texto fora do padrão JSON.";
+  }
+
+  return {
+    titulo,
+    subtitulo,
+    detalhe,
+    dica
+  };
+}
+
+function mostrarErroBonitoOtto(erro, extras = {}) {
+  const info = extrairMensagemErroBonita(erro);
+
+  const statusHttp = extras.statusHttp || "";
+  const rota = extras.rota || API_ADMIN_AGENTE || "/api/admin-agente";
+  const pergunta = extras.pergunta || ultimoTextoUsuario || "";
+
+  processando = false;
+  falandoAgora = false;
+  pulsoResposta = 1;
+
+  if ("speechSynthesis" in window) {
+    speechSynthesis.cancel();
+  }
+
+  ultimaRespostaOtto = "";
+  ultimaRespostaCompleta = [
+    "ERRO OTTO",
+    info.titulo,
+    info.subtitulo,
+    info.detalhe,
+    info.dica
+  ].join("\n");
+
+  renderizarRespostaAPI({
+    respostaTexto: ultimaRespostaCompleta,
+    fala: "",
+    canvas: {
+      kicker: "ERRO DO OTTO",
+      titulo: info.titulo,
+      subtitulo: info.subtitulo,
+      estilo: {
+        tema: "vermelho"
+      },
+      cards: [
+        {
+          label: "Status",
+          valor: statusHttp ? String(statusHttp) : "Falha",
+          desc: "Resultado da tentativa"
+        },
+        {
+          label: "Rota",
+          valor: rota,
+          desc: "Endpoint chamado"
+        },
+        {
+          label: "Ação",
+          valor: "Sem leitura",
+          desc: "O erro foi exibido sem voz"
+        }
+      ],
+      html: `
+        <div class="bloco">
+          <h2>⚠️ ${info.titulo}</h2>
+          <p><strong>${info.subtitulo}</strong></p>
+          <p class="negativo">${info.detalhe}</p>
+          <p>${info.dica}</p>
+        </div>
+
+        <div class="bloco">
+          <h3>Detalhes técnicos</h3>
+          <p><strong>Rota:</strong> ${rota}</p>
+          ${statusHttp ? `<p><strong>HTTP:</strong> ${statusHttp}</p>` : ""}
+          ${pergunta ? `<p><strong>Pergunta:</strong> ${pergunta}</p>` : ""}
+        </div>
+      `
+    }
+  });
+
+  atualizarEstado("ERRO", info.subtitulo);
+
+  mostrarToast("Erro exibido na tela. Voz bloqueada para erros.");
+
+  garantirMicrofoneAtivo();
+}
+
+
+function limitarTextoOtto(valor, limite = 8000) {
+  const texto = String(valor || "");
+
+  if (texto.length <= limite) {
+    return texto;
+  }
+
+  return texto.slice(0, limite) + "\n[conteúdo cortado para evitar erro 413]";
+}
+
+function montarResumoRespostaParaSalvar(data) {
+  const payload = data && typeof data === "object" ? data : {};
+
+  const resumo = {
+    ok: payload.ok === true,
+    sucesso: payload.sucesso === true,
+    pergunta: payload.pergunta || "",
+    respostaTexto: limitarTextoOtto(
+      payload.respostaTexto ||
+      payload.resposta ||
+      payload.mensagem ||
+      "",
+      6000
+    ),
+    fala: limitarTextoOtto(
+      payload.fala ||
+      payload.respostaTexto ||
+      payload.resposta ||
+      "",
+      3000
+    ),
+    roteamento: payload.roteamento || null,
+    agente_nome: payload.agente_nome || null,
+    hashtag: payload.hashtag || null,
+    endpoint: payload.endpoint || null,
+    resumo: payload.resumo || payload.dados?.resumo || null,
+    periodo: payload.periodo || payload.dados?.periodo || null,
+    filtros: payload.filtros || payload.dados?.filtros || null,
+    tem_canvas: Boolean(payload.canvas),
+    tem_graficos: Array.isArray(payload.graficos)
+      ? payload.graficos.length > 0
+      : Boolean(payload.graficos),
+    tem_tabela: Boolean(payload.tabela),
+    tem_tabelas: Boolean(payload.tabelas),
+    timestamp: payload.timestamp || new Date().toISOString()
+  };
+
+  return limitarTextoOtto(
+    JSON.stringify(resumo),
+    12000
+  );
+}
+
+
+
+
+
+    
+async function enviarPergunta(texto) {
+  if (!texto) return;
+  if (processando) return;
+
+  if (detectarComandoPrint(texto)) {
+    await tirarPrintScreenPorVoz();
+    garantirMicrofoneAtivo();
+    return;
+  }
+
+  const temaDetectado = detectarComandoVisual(texto);
+
+      if (temaDetectado) {
+        await ativarTema(temaDetectado, true);
+        garantirMicrofoneAtivo();
+        return;
+      }
+
+      ultimoTextoUsuario = texto;
+      ultimaRespostaOtto = "";
+      processando = true;
+
+      atualizarEstado("PROCESSANDO", "OTTO enviando para a central administrativa");
+      criarOnda(1);
+
+      try {
+        const contexto = await buscarContexto();
+
+        console.log("API CENTRAL:", API_ADMIN_AGENTE);
+
+        const res = await fetch(API_ADMIN_AGENTE, {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer mercatto_admin_2026"
+          },
+
+          body: JSON.stringify({
+            pergunta: texto,
+            mensagem: texto,
+            texto: texto,
+
+            contexto: contexto,
+
+            usuario_id: usuarioLogado.id,
+            usuario: usuarioLogado.usuario,
+            nome: usuarioLogado.nome,
+            empresa: usuarioLogado.empresa,
+            telefone: usuarioLogado.telefone || "",
+            numero: usuarioLogado.telefone || "",
+            email: usuarioLogado.email || "",
+
+            interface: "OTTO_INDEX_CANVAS",
+            aceita_canvas: true,
+            aceita_html: true,
+            aceita_cards: true,
+            aceita_tabelas: true,
+            aceita_graficos: true,
+            tema_atual: temaAtual
+          })
+        });
+
+if (!res.ok) {
+  let detalheErro = "";
+
+  try {
+    const erroApi = await res.json();
+    detalheErro =
+      erroApi?.erro ||
+      erroApi?.message ||
+      erroApi?.resposta ||
+      JSON.stringify(erroApi);
+  } catch (erroJson) {
+    detalheErro = "";
+  }
+
+  const erroHttp = new Error(
+    detalheErro
+      ? `Erro HTTP ${res.status}: ${detalheErro}`
+      : `Erro HTTP ${res.status}`
+  );
+
+  erroHttp.statusHttp = res.status;
+  erroHttp.rota = API_ADMIN_AGENTE;
+
+  throw erroHttp;
+}
+
+let data;
+
+try {
+  data = await res.json();
+} catch (erroJson) {
+  const erroResposta = new Error("Resposta inválida da API. JSON não pôde ser lido.");
+  erroResposta.rota = API_ADMIN_AGENTE;
+  throw erroResposta;
+}
+
+if (data && data.ok === false) {
+  const erroApi = new Error(
+    data.erro ||
+    data.message ||
+    data.resposta ||
+    "A API retornou ok false."
+  );
+
+  erroApi.statusHttp = 200;
+  erroApi.rota = API_ADMIN_AGENTE;
+  erroApi.payload = data;
+
+  throw erroApi;
+}
+
+const payloadNormalizado = normalizarPayloadResposta(data);
+
+        const resposta = payloadNormalizado.respostaTexto;
+        const falaResposta = payloadNormalizado.fala;
+
+        ultimaRespostaOtto = falaResposta;
+        pulsoResposta = 1;
+
+        renderizarRespostaAPI(payloadNormalizado);
+await salvarConversa(
+  texto,
+  montarResumoRespostaParaSalvar(data)
+);
+
+        processando = false;
+
+        atualizarEstado("RESPONDENDO", "OTTO entregando a resposta organizada");
+
+        await falar(falaResposta);
+
+        garantirMicrofoneAtivo();
+
+} catch (erro) {
+  console.error("ERRO OTTO:", erro);
+
+  mostrarErroBonitoOtto(erro, {
+    statusHttp: erro?.statusHttp || "",
+    rota: erro?.rota || API_ADMIN_AGENTE,
+    pergunta: texto
+  });
+
+  return;
+}
+    }
+
+    function enviar() {
+      const texto = input.value.trim();
+
+      if (!texto) return;
+
+      input.value = "";
+
+      enviarPergunta(texto);
+    }
+
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        enviar();
+      }
+    });
+
+    function abrirCanvasUrl(url) {
+      const layer = document.getElementById("canvasLayer");
+      const frame = document.getElementById("canvasFrame");
+
+      frame.src = url;
+      layer.classList.add("ativo");
+
+      atualizarEstado("MÓDULO ABERTO", "OTTO exibindo uma interface dentro do canvas");
+    }
+
+    function fecharCanvas() {
+      const layer = document.getElementById("canvasLayer");
+      const frame = document.getElementById("canvasFrame");
+
+      layer.classList.remove("ativo");
+      frame.src = "about:blank";
+
+      atualizarEstado(
+        micAtivo ? "ESCUTANDO" : "CANVAS LIVRE",
+        micAtivo ? "Microfone ativo continuamente" : "Canvas pronto para novas operações"
+      );
+
+      garantirMicrofoneAtivo();
+    }
+
+    function abrirDiretoria() {
+      abrirCanvasUrl("././administrador/diretoria/server/chat.html");
+    }
+
+    function fecharDiretoria() {
+      fecharCanvas();
+    }
+
+    function carregarPreferenciasLocais() {
+      const vozSalva = localStorage.getItem("ottoVozAtiva");
+      const micSalvo = localStorage.getItem("ottoMicAtivo");
+
+      if (vozSalva === "0") {
+        vozAtiva = false;
+      }
+
+      if (micSalvo === "0") {
+        micAtivo = false;
+      }
+    }
+
+    window.abrirCanvasUrl = abrirCanvasUrl;
+    window.fecharCanvas = fecharCanvas;
+    window.abrirDiretoria = abrirDiretoria;
+    window.fecharDiretoria = fecharDiretoria;
+window.ativarTema = ativarTema;
+window.tirarPrintScreenPorVoz = tirarPrintScreenPorVoz;
+window.enviar = enviar;
+window.enviarPergunta = enviarPergunta;
+window.garantirMicrofoneAtivo = garantirMicrofoneAtivo;
+    window.fecharResultado = fecharResultado;
+    window.copiarResultado = copiarResultado;
+    window.limparResultadoVisual = limparResultadoVisual;
+
+    async function iniciarOtto() {
+      carregarPreferenciasLocais();
+
+      ajustarCanvas();
+      prepararReconhecimento();
+      atualizarBotoes();
+
+      await ativarTema(temaAtual, false);
+
+      await carregarHistorico();
+
+      atualizarEstado("ONLINE", "Sistema executivo inteligente iniciado");
+
+      const nome =
+        usuarioLogado.nome ||
+        usuarioLogado.usuario ||
+        "diretoria";
+
+      ultimaRespostaOtto =
+        obterSaudacao() +
+        ", " +
+        nome +
+        ". OTTO online. Microfone ativo continuamente.";
+
+      setTimeout(async function () {
+        try {
+          if (vozAtiva || micAtivo) {
+            await liberarAudioEEntrada();
+          }
+        } catch (erro) {
+          audioPermission.classList.add("mostrar");
+        }
+      }, 700);
+
+      setTimeout(function () {
+        if (!audioLiberado && (vozAtiva || micAtivo)) {
+          audioPermission.classList.add("mostrar");
+        }
+      }, 1400);
+
+      setTimeout(function () {
+        garantirMicrofoneAtivo();
+      }, 900);
+
+      animar();
+    }
+
+    window.addEventListener("resize", ajustarCanvas);
+
+    document.addEventListener("click", function () {
+      if (!audioLiberado) {
+        liberarAudioEEntrada();
+      } else {
+        garantirMicrofoneAtivo();
+      }
+    }, { once: true });
+
+    document.addEventListener("touchstart", function () {
+      if (!audioLiberado) {
+        liberarAudioEEntrada();
+      } else {
+        garantirMicrofoneAtivo();
+      }
+    }, { once: true });
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        paradaManualMicrofone = false;
+      } else {
+        garantirMicrofoneAtivo();
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        fecharResultado();
+        fecharCanvas();
+      }
+    });
+function escaparHTMLPdfOtto(valor) {
+  return String(valor || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatarDataHoraPDFOtto() {
+  const agora = new Date();
+
+  return agora.toLocaleString(
+    "pt-BR",
+    {
+      timeZone: "America/Bahia",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  );
+}
+
+function nomeArquivoPDFOtto() {
+  const agora = new Date();
+
+  const data = agora.toLocaleDateString(
+    "pt-BR",
+    {
+      timeZone: "America/Bahia",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }
+  ).replaceAll("/", "-");
+
+  const hora = agora.toLocaleTimeString(
+    "pt-BR",
+    {
+      timeZone: "America/Bahia",
+      hour: "2-digit",
+      minute: "2-digit"
+    }
+  ).replaceAll(":", "-");
+
+  return "OTTO-" + data + "-" + hora + ".pdf";
+}
+
+function mostrarLoadingPDFOtto() {
+  const loading = document.getElementById("pdfOttoLoading");
+
+  if (loading) {
+    loading.classList.add("ativo");
+  }
+}
+
+function esconderLoadingPDFOtto() {
+  const loading = document.getElementById("pdfOttoLoading");
+
+  if (loading) {
+    loading.classList.remove("ativo");
+  }
+}
+
+function mostrarToastPDFOtto(texto) {
+  if (typeof mostrarToast === "function") {
+    mostrarToast(texto);
+    return;
+  }
+
+  const toast = document.getElementById("toastOtto");
+
+  if (!toast) {
+    alert(texto);
+    return;
+  }
+
+  toast.textContent = texto;
+  toast.classList.add("ativo");
+
+  clearTimeout(window.toastTimerPDFOtto);
+
+  window.toastTimerPDFOtto = setTimeout(function () {
+    toast.classList.remove("ativo");
+  }, 2600);
+}
+
+function pegarHTMLDoCanvasOuResultado() {
+  const canvasLayer = document.getElementById("canvasLayer");
+  const canvasFrame = document.getElementById("canvasFrame");
+  const resultadoLayer = document.getElementById("resultadoLayer");
+  const resultadoContent = document.getElementById("resultadoContent");
+  const resultadoTitulo = document.getElementById("resultadoTitulo");
+
+  const canvasEstaAberto =
+    canvasLayer &&
+    canvasLayer.classList.contains("ativo") &&
+    canvasFrame;
+
+  if (canvasEstaAberto) {
+    try {
+      const documentoFrame =
+        canvasFrame.contentDocument ||
+        canvasFrame.contentWindow.document;
+
+      if (
+        documentoFrame &&
+        documentoFrame.body &&
+        documentoFrame.body.innerHTML.trim()
+      ) {
+        const tituloFrame =
+          documentoFrame.title ||
+          resultadoTitulo?.textContent ||
+          "Canvas OTTO";
+
+        return {
+          titulo: tituloFrame,
+          origem: "CANVAS",
+          html: documentoFrame.body.innerHTML
+        };
+      }
+    } catch (erroFrame) {
+      console.warn("Não foi possível ler o iframe do canvas:", erroFrame);
+    }
+  }
+
+  const resultadoEstaAberto =
+    resultadoLayer &&
+    resultadoLayer.classList.contains("ativo") &&
+    resultadoContent &&
+    resultadoContent.innerHTML.trim();
+
+  if (resultadoEstaAberto) {
+    return {
+      titulo: resultadoTitulo?.textContent || "Resultado OTTO",
+      origem: "RESULTADO",
+      html: resultadoContent.innerHTML
+    };
+  }
+
+  if (resultadoContent && resultadoContent.innerHTML.trim()) {
+    return {
+      titulo: resultadoTitulo?.textContent || "Resultado OTTO",
+      origem: "RESULTADO",
+      html: resultadoContent.innerHTML
+    };
+  }
+
+  return {
+    titulo: "OTTO",
+    origem: "TELA",
+    html: "<p>Nenhum conteúdo disponível para gerar PDF.</p>"
+  };
+}
+
+function criarElementoPDFOtto(dados) {
+  const area = document.createElement("div");
+
+  area.className = "pdf-otto-wrapper";
+
+  area.innerHTML = `
+    <div class="pdf-otto-topo">
+      <div class="pdf-otto-marca">
+        <div class="pdf-otto-logo">OTTO</div>
+
+        <div class="pdf-otto-titulo-area">
+          <div class="pdf-otto-kicker">
+            ${escaparHTMLPdfOtto(dados.origem)} • RELATÓRIO INTELIGENTE
+          </div>
+
+          <div class="pdf-otto-titulo">
+            ${escaparHTMLPdfOtto(dados.titulo)}
+          </div>
+        </div>
+      </div>
+
+      <div class="pdf-otto-data">
+        Gerado em<br>
+        ${escaparHTMLPdfOtto(formatarDataHoraPDFOtto())}
+      </div>
+    </div>
+
+    <div class="pdf-otto-conteudo">
+      ${dados.html}
+    </div>
+
+    <div class="pdf-otto-rodape">
+      <div>OTTO • Central Executiva</div>
+      <div>Documento gerado automaticamente</div>
+    </div>
+  `;
+
+  area.style.position = "fixed";
+  area.style.left = "-20000px";
+  area.style.top = "0";
+  area.style.zIndex = "-1";
+
+  document.body.appendChild(area);
+
+  return area;
+}
+
+async function converterElementoParaPDFOtto(elemento) {
+  const jsPDFGlobal =
+    window.jspdf &&
+    window.jspdf.jsPDF;
+
+  if (!jsPDFGlobal) {
+    throw new Error("Biblioteca jsPDF não carregou.");
+  }
+
+  if (typeof html2canvas !== "function") {
+    throw new Error("Biblioteca html2canvas não carregou.");
+  }
+
+  const canvasPDF = await html2canvas(
+    elemento,
+    {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      windowWidth: elemento.scrollWidth,
+      windowHeight: elemento.scrollHeight
+    }
+  );
+
+  const imagem = canvasPDF.toDataURL("image/jpeg", 0.96);
+
+  const pdf = new jsPDFGlobal(
+    "p",
+    "mm",
+    "a4"
+  );
+
+  const larguraPagina = pdf.internal.pageSize.getWidth();
+  const alturaPagina = pdf.internal.pageSize.getHeight();
+
+  const margem = 8;
+  const larguraImagem = larguraPagina - margem * 2;
+  const alturaImagem = canvasPDF.height * larguraImagem / canvasPDF.width;
+
+  let alturaRestante = alturaImagem;
+  let posicaoY = margem;
+
+  pdf.addImage(
+    imagem,
+    "JPEG",
+    margem,
+    posicaoY,
+    larguraImagem,
+    alturaImagem
+  );
+
+  alturaRestante -= alturaPagina - margem * 2;
+
+  while (alturaRestante > 0) {
+    pdf.addPage();
+
+    posicaoY =
+      margem -
+      (alturaImagem - alturaRestante);
+
+    pdf.addImage(
+      imagem,
+      "JPEG",
+      margem,
+      posicaoY,
+      larguraImagem,
+      alturaImagem
+    );
+
+    alturaRestante -= alturaPagina - margem * 2;
+  }
+
+  return pdf;
+}
+
+async function baixarPDFOtto() {
+  let elementoPDF = null;
+
+  try {
+    mostrarLoadingPDFOtto();
+
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 180);
+    });
+
+    const dados = pegarHTMLDoCanvasOuResultado();
+
+    elementoPDF = criarElementoPDFOtto(dados);
+
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 250);
+    });
+
+    const pdf = await converterElementoParaPDFOtto(elementoPDF);
+
+    pdf.save(nomeArquivoPDFOtto());
+
+    mostrarToastPDFOtto("PDF do OTTO baixado com sucesso.");
+  } catch (erro) {
+    console.error("Erro ao gerar PDF OTTO:", erro);
+
+    mostrarToastPDFOtto(
+      "Não consegui gerar o PDF. Verifique se o conteúdo do canvas está carregado."
+    );
+  } finally {
+    if (elementoPDF && elementoPDF.parentNode) {
+      elementoPDF.parentNode.removeChild(elementoPDF);
+    }
+
+    esconderLoadingPDFOtto();
+  }
+}
+    iniciarOtto();
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker
+          .register("./sw.js")
+          .then(function () {
+            console.log("PWA OK");
+          })
+          .catch(function (erro) {
+            console.log("Erro PWA:", erro);
+          });
+      });
+    }
+  </script>
+
+</body>
+
+</html>
