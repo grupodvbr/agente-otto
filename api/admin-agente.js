@@ -1,5 +1,3 @@
-
-
 const OpenAI = require("openai");
 
 const {
@@ -65,6 +63,194 @@ Number(process.env.OTTO_TIMEOUT_AGENTE_MS || 30000);
 
 const LIMITE_MEMORIA_CONTEXTO =
 Number(process.env.OTTO_LIMITE_MEMORIA_CONTEXTO || 12);
+
+const OTTO_DEBUG =
+String(process.env.OTTO_DEBUG || "true").toLowerCase() !== "false";
+
+const OTTO_LOG_BODY =
+String(process.env.OTTO_LOG_BODY || "true").toLowerCase() !== "false";
+
+const OTTO_LOG_PAYLOAD_AGENTE =
+String(process.env.OTTO_LOG_PAYLOAD_AGENTE || "true").toLowerCase() !== "false";
+
+const OTTO_LOG_RESPOSTA_AGENTE =
+String(process.env.OTTO_LOG_RESPOSTA_AGENTE || "true").toLowerCase() !== "false";
+
+const OTTO_LOG_MAX_CHARS =
+Number(process.env.OTTO_LOG_MAX_CHARS || 18000);
+
+// ======================================================
+// LOGS PARA CONSOLE / VERCEL
+// ======================================================
+
+function criarRequestId() {
+  return `otto_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function tempoMs(inicio) {
+  return Date.now() - inicio;
+}
+
+function cortarParaLog(valor, limite = OTTO_LOG_MAX_CHARS) {
+  let texto = "";
+
+  try {
+    texto =
+      typeof valor === "string"
+        ? valor
+        : JSON.stringify(valor || {}, null, 2);
+  } catch (e) {
+    texto = String(valor || "");
+  }
+
+  if (texto.length <= limite) {
+    return texto;
+  }
+
+  return texto.slice(0, limite) + "\n[LOG CORTADO POR LIMITE]";
+}
+
+function mascararValorLog(chave, valor) {
+  const key =
+  String(chave || "").toLowerCase();
+
+  const sensiveis = [
+    "authorization",
+    "apikey",
+    "api_key",
+    "openai_api_key",
+    "supabase_service_role",
+    "service_role",
+    "token",
+    "bearer",
+    "senha",
+    "password",
+    "secret",
+    "cookie"
+  ];
+
+  if (
+    sensiveis.some((item) =>
+      key.includes(item)
+    )
+  ) {
+    return "[REMOVIDO_DO_LOG]";
+  }
+
+  return valor;
+}
+
+function limparParaLog(valor, profundidade = 0) {
+  if (profundidade > 7) {
+    return "[PROFUNDIDADE_MAXIMA]";
+  }
+
+  if (valor === null || valor === undefined) {
+    return valor;
+  }
+
+  if (typeof valor === "string") {
+    return valor.length > OTTO_LOG_MAX_CHARS
+      ? valor.slice(0, OTTO_LOG_MAX_CHARS) + "\n[STRING CORTADA]"
+      : valor;
+  }
+
+  if (typeof valor !== "object") {
+    return valor;
+  }
+
+  if (Array.isArray(valor)) {
+    return valor.slice(0, 80).map((item) =>
+      limparParaLog(item, profundidade + 1)
+    );
+  }
+
+  const limpo = {};
+
+  for (const [chave, conteudo] of Object.entries(valor)) {
+    limpo[chave] =
+    limparParaLog(
+      mascararValorLog(chave, conteudo),
+      profundidade + 1
+    );
+  }
+
+  return limpo;
+}
+
+function erroParaLog(err) {
+  if (!err) {
+    return null;
+  }
+
+  return {
+    name: err.name || null,
+    message: err.message || String(err),
+    stack: err.stack || null,
+    cause: err.cause || null
+  };
+}
+
+function logOtto({
+  requestId,
+  nivel = "info",
+  etapa,
+  mensagem,
+  dados,
+  erro,
+  pergunta,
+  hashtag,
+  agente,
+  endpoint,
+  status,
+  sucesso,
+  tempo_ms
+}) {
+  if (!OTTO_DEBUG) {
+    return;
+  }
+
+  const payload = {
+    sistema: "OTTO_ADMIN_AGENTE",
+    request_id: requestId || null,
+    nivel,
+    etapa,
+    mensagem: mensagem || "",
+    pergunta: pergunta ? cortarParaLog(pergunta, 2500) : null,
+    hashtag: hashtag || null,
+    agente: agente || null,
+    endpoint: endpoint || null,
+    status: status || null,
+    sucesso:
+      sucesso === true
+        ? true
+        : sucesso === false
+          ? false
+          : null,
+    tempo_ms:
+      Number.isFinite(tempo_ms)
+        ? tempo_ms
+        : null,
+    dados: limparParaLog(dados || {}),
+    erro: erroParaLog(erro),
+    timestamp: new Date().toISOString()
+  };
+
+  const linha =
+  `[OTTO_LOG] ${cortarParaLog(payload, OTTO_LOG_MAX_CHARS)}`;
+
+  if (nivel === "error") {
+    console.error(linha);
+    return;
+  }
+
+  if (nivel === "warn") {
+    console.warn(linha);
+    return;
+  }
+
+  console.log(linha);
+}
 
 // ======================================================
 // HELPERS BÁSICOS
@@ -695,8 +881,23 @@ function calcularPontuacaoMemoria({
 async function buscarMemoriaContextual({
   pergunta,
   contexto,
-  limite = LIMITE_MEMORIA_CONTEXTO
+  limite = LIMITE_MEMORIA_CONTEXTO,
+  requestId
 }) {
+  const inicio =
+  Date.now();
+
+  logOtto({
+    requestId,
+    etapa: "memoria_contextual_inicio",
+    mensagem: "Iniciando busca de memória contextual",
+    pergunta,
+    dados: {
+      limite,
+      contexto
+    }
+  });
+
   const contextoSeguro =
   contexto && typeof contexto === "object"
     ? contexto
@@ -810,6 +1011,15 @@ async function buscarMemoriaContextual({
   );
 
   if (!consultas.length) {
+    logOtto({
+      requestId,
+      etapa: "memoria_contextual_sem_consultas",
+      nivel: "warn",
+      mensagem: "Nenhuma consulta de memória foi montada",
+      pergunta,
+      tempo_ms: tempoMs(inicio)
+    });
+
     return {
       itens: [],
       resumo: "",
@@ -828,6 +1038,15 @@ async function buscarMemoriaContextual({
 
   for (const resultado of resultados) {
     if (resultado.status !== "fulfilled") {
+      logOtto({
+        requestId,
+        etapa: "memoria_contextual_consulta_rejected",
+        nivel: "error",
+        mensagem: "Consulta Supabase de memória foi rejeitada",
+        pergunta,
+        dados: resultado,
+        erro: resultado.reason
+      });
       continue;
     }
 
@@ -835,10 +1054,19 @@ async function buscarMemoriaContextual({
     resultado.value;
 
     if (value?.error) {
-      console.log(
-        "ERRO AO BUSCAR MEMÓRIA CONTEXTUAL:",
-        value.error.message
-      );
+      logOtto({
+        requestId,
+        etapa: "memoria_contextual_erro_supabase",
+        nivel: "error",
+        mensagem: "Erro retornado pelo Supabase ao buscar memória",
+        pergunta,
+        dados: {
+          code: value.error.code,
+          details: value.error.details,
+          hint: value.error.hint,
+          message: value.error.message
+        }
+      });
       continue;
     }
 
@@ -908,7 +1136,7 @@ async function buscarMemoriaContextual({
     })
     .join("\n\n---\n\n");
 
-  return {
+  const retorno = {
     itens: ordenados,
     resumo,
     ultima_hashtag: ultimaComRota?.hashtag || null,
@@ -917,13 +1145,61 @@ async function buscarMemoriaContextual({
     ultima_categoria: ultimaComRota?.categoria || null,
     ultima_empresa: ultimaComEmpresa?.empresa || null
   };
+
+  logOtto({
+    requestId,
+    etapa: "memoria_contextual_fim",
+    mensagem: "Memória contextual finalizada",
+    pergunta,
+    tempo_ms: tempoMs(inicio),
+    dados: {
+      total_bruto: todos.length,
+      total_deduplicado: deduplicados.length,
+      total_filtrado: filtrados.length,
+      total_usado: ordenados.length,
+      ultima_hashtag: retorno.ultima_hashtag,
+      ultimo_agente: retorno.ultimo_agente,
+      ultimo_endpoint: retorno.ultimo_endpoint,
+      ultima_categoria: retorno.ultima_categoria,
+      ultima_empresa: retorno.ultima_empresa,
+      memorias_usadas: ordenados.map((item) => ({
+        id: item.id,
+        created_at: item.created_at,
+        tipo: item.tipo,
+        agente: item.agente,
+        hashtag: item.hashtag,
+        endpoint: item.endpoint,
+        empresa: item.empresa,
+        score: item._score,
+        pergunta: item.pergunta,
+        resumo: item.resumo
+      }))
+    }
+  });
+
+  return retorno;
 }
 
 // ======================================================
 // PROMPT DO SUPABASE
 // ======================================================
 
-async function buscarPromptDirecionamento() {
+async function buscarPromptDirecionamento({
+  requestId
+} = {}) {
+  const inicio =
+  Date.now();
+
+  logOtto({
+    requestId,
+    etapa: "prompt_supabase_inicio",
+    mensagem: "Buscando prompt de direcionamento no Supabase",
+    dados: {
+      tabela: "parametros_sistema",
+      nome_parametro: NOME_PARAMETRO_PROMPT
+    }
+  });
+
   const {
     data,
     error
@@ -935,6 +1211,20 @@ async function buscarPromptDirecionamento() {
     .maybeSingle();
 
   if (error) {
+    logOtto({
+      requestId,
+      etapa: "prompt_supabase_erro",
+      nivel: "error",
+      mensagem: "Erro ao buscar prompt no Supabase",
+      tempo_ms: tempoMs(inicio),
+      dados: {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        message: error.message
+      }
+    });
+
     throw new Error(
       `Erro ao buscar prompt no Supabase: ${error.message}`
     );
@@ -947,10 +1237,32 @@ async function buscarPromptDirecionamento() {
     "";
 
   if (!String(prompt).trim()) {
+    logOtto({
+      requestId,
+      etapa: "prompt_supabase_vazio",
+      nivel: "error",
+      mensagem: "Prompt de direcionamento não encontrado ou vazio",
+      tempo_ms: tempoMs(inicio),
+      dados: {
+        data
+      }
+    });
+
     throw new Error(
       "Prompt de direcionamento não encontrado em parametros_sistema."
     );
   }
+
+  logOtto({
+    requestId,
+    etapa: "prompt_supabase_fim",
+    mensagem: "Prompt encontrado com sucesso",
+    tempo_ms: tempoMs(inicio),
+    dados: {
+      tamanho_prompt: String(prompt).length,
+      primeira_linha: primeiraLinha(prompt)
+    }
+  });
 
   return String(prompt).trim();
 }
@@ -963,23 +1275,36 @@ async function escolherHashtag({
   pergunta,
   promptComando,
   contexto,
-  memoriaContextual
+  memoriaContextual,
+  requestId
 }) {
+  const inicio =
+  Date.now();
+
   const memoriaTexto =
   memoriaContextual?.resumo || "";
 
   const perguntaContinua =
   perguntaPareceContinuidade(pergunta);
 
-  const completion =
-  await openai.chat.completions.create({
-    model: OPENAI_MODEL,
-    temperature: 0,
-    max_tokens: 30,
-    messages: [
-      {
-        role: "system",
-        content:
+  logOtto({
+    requestId,
+    etapa: "openai_escolher_hashtag_inicio",
+    mensagem: "Chamando OpenAI para escolher hashtag",
+    pergunta,
+    dados: {
+      modelo: OPENAI_MODEL,
+      pergunta_continua: perguntaContinua,
+      tamanho_prompt_supabase: String(promptComando || "").length,
+      tamanho_memoria: String(memoriaTexto || "").length,
+      contexto
+    }
+  });
+
+  const messages = [
+    {
+      role: "system",
+      content:
 `Você é o OTTO Central, um orquestrador de agentes.
 
 Sua função NÃO é responder a pergunta final.
@@ -1006,10 +1331,10 @@ Regras obrigatórias:
 10. Nunca explique.
 11. Nunca mande JSON.
 12. Nunca mande texto fora da hashtag.`
-      },
-      {
-        role: "user",
-        content:
+    },
+    {
+      role: "user",
+      content:
 `${promptComando}
 
 PERGUNTA ATUAL:
@@ -1040,37 +1365,115 @@ MEMÓRIA CONTEXTUAL RECENTE:
 ${memoriaTexto || "SEM MEMÓRIA ENCONTRADA"}
 
 Escolha agora somente uma hashtag.`
+    }
+  ];
+
+  try {
+    const completion =
+    await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0,
+      max_tokens: 30,
+      messages
+    });
+
+    const resposta =
+    completion
+      ?.choices
+      ?.[0]
+      ?.message
+      ?.content ||
+    "";
+
+    const hashtag =
+    limparHashtag(resposta);
+
+    logOtto({
+      requestId,
+      etapa: "openai_escolher_hashtag_resposta",
+      mensagem: "OpenAI retornou resposta para hashtag",
+      pergunta,
+      tempo_ms: tempoMs(inicio),
+      dados: {
+        resposta_bruta: resposta,
+        hashtag_limpa: hashtag,
+        usage: completion?.usage || null,
+        model: completion?.model || OPENAI_MODEL,
+        finish_reason: completion?.choices?.[0]?.finish_reason || null
       }
-    ]
-  });
+    });
 
-  const resposta =
-  completion
-    ?.choices
-    ?.[0]
-    ?.message
-    ?.content ||
-  "";
+    if (!hashtag) {
+      throw new Error(
+        `A IA não retornou uma hashtag válida. Resposta recebida: ${resposta}`
+      );
+    }
 
-  const hashtag =
-  limparHashtag(resposta);
+    return hashtag;
 
-  if (!hashtag) {
-    throw new Error(
-      `A IA não retornou uma hashtag válida. Resposta recebida: ${resposta}`
-    );
+  } catch (e) {
+    logOtto({
+      requestId,
+      etapa: "openai_escolher_hashtag_erro",
+      nivel: "error",
+      mensagem: "Erro ao escolher hashtag com OpenAI",
+      pergunta,
+      tempo_ms: tempoMs(inicio),
+      erro: e,
+      dados: {
+        modelo: OPENAI_MODEL,
+        pergunta,
+        contexto,
+        messages_resumo: messages.map((m) => ({
+          role: m.role,
+          tamanho: String(m.content || "").length,
+          primeira_linha: primeiraLinha(m.content)
+        }))
+      }
+    });
+
+    throw e;
   }
-
-  return hashtag;
 }
 
 // ======================================================
 // LEITURA HTTP
 // ======================================================
 
-async function lerRespostaHTTP(resposta) {
+async function lerRespostaHTTP(resposta, {
+  requestId,
+  etapa,
+  pergunta,
+  endpoint,
+  agente,
+  hashtag
+} = {}) {
+  const inicio =
+  Date.now();
+
   const texto =
   await resposta.text();
+
+  logOtto({
+    requestId,
+    etapa: etapa || "http_ler_resposta",
+    mensagem: "Resposta HTTP bruta recebida",
+    pergunta,
+    hashtag,
+    agente,
+    endpoint,
+    status: resposta.status,
+    sucesso: resposta.ok,
+    tempo_ms: tempoMs(inicio),
+    dados: {
+      status: resposta.status,
+      ok: resposta.ok,
+      headers: Object.fromEntries(resposta.headers.entries()),
+      texto_bruto: OTTO_LOG_RESPOSTA_AGENTE
+        ? cortarParaLog(texto, OTTO_LOG_MAX_CHARS)
+        : "[DESATIVADO_POR_OTTO_LOG_RESPOSTA_AGENTE]"
+    }
+  });
 
   if (!texto) {
     return {};
@@ -1079,6 +1482,22 @@ async function lerRespostaHTTP(resposta) {
   try {
     return JSON.parse(texto);
   } catch (e) {
+    logOtto({
+      requestId,
+      etapa: "http_resposta_nao_json",
+      nivel: "warn",
+      mensagem: "Resposta HTTP não era JSON válido",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      status: resposta.status,
+      erro: e,
+      dados: {
+        texto
+      }
+    });
+
     return {
       resposta: texto
     };
@@ -1089,7 +1508,16 @@ async function lerRespostaHTTP(resposta) {
 // NORMALIZA RESPOSTA DO AGENTE
 // ======================================================
 
-function normalizarRespostaAgente(data) {
+function normalizarRespostaAgente(data, {
+  requestId,
+  pergunta,
+  hashtag,
+  agente,
+  endpoint
+} = {}) {
+  const inicio =
+  Date.now();
+
   const payload =
   data && typeof data === "object"
     ? data
@@ -1213,7 +1641,7 @@ function normalizarRespostaAgente(data) {
     html;
   }
 
-  return {
+  const retorno = {
     resposta:
       respostaTexto ||
       fala ||
@@ -1259,6 +1687,31 @@ function normalizarRespostaAgente(data) {
       payload?.resultado?.fontes ||
       null
   };
+
+  logOtto({
+    requestId,
+    etapa: "normalizar_resposta_agente",
+    mensagem: "Resposta do agente normalizada",
+    pergunta,
+    hashtag,
+    agente,
+    endpoint,
+    tempo_ms: tempoMs(inicio),
+    dados: {
+      tem_resposta: Boolean(retorno.resposta),
+      tamanho_resposta: String(retorno.resposta || "").length,
+      tem_canvas: Boolean(retorno.canvas),
+      tem_dados: Boolean(retorno.dados),
+      total_graficos: Array.isArray(retorno.graficos) ? retorno.graficos.length : 0,
+      tem_tabela: Boolean(retorno.tabela),
+      tem_tabelas: Boolean(retorno.tabelas),
+      tem_cards: Boolean(retorno.cards),
+      tem_html: Boolean(retorno.html),
+      tem_fontes: Boolean(retorno.fontes)
+    }
+  });
+
+  return retorno;
 }
 
 // ======================================================
@@ -1271,8 +1724,12 @@ async function chamarRota({
   origin,
   hashtag,
   endpoint,
-  agente
+  agente,
+  requestId
 }) {
+  const inicio =
+  Date.now();
+
   const {
     controller,
     timer
@@ -1288,23 +1745,55 @@ async function chamarRota({
     const url =
     `${origin}${endpoint}`;
 
-    console.log(`
+    const payloadAgente = {
+      pergunta,
+      mensagem: pergunta,
+      texto: pergunta,
 
-🤖 OTTO CENTRAL ENVIANDO
+      telefone: contexto?.telefone || "",
+      numero: contexto?.numero || contexto?.telefone || "",
+      nome: contexto?.nome || "",
+      empresa: contexto?.empresa || "",
+      usuario_id: contexto?.usuario_id || null,
+      usuario: contexto?.usuario || "",
+      email: contexto?.email || "",
 
-❓ PERGUNTA:
-${pergunta}
+      data: contexto?.data || hojeBahiaISO(),
+      hoje: contexto?.hoje || hojeBahiaISO(),
+      timezone: TIMEZONE,
 
-🏷️ HASHTAG:
-${hashtag}
+      origem: "OTTO_CENTRAL",
+      interface: contexto?.interface || "OTTO_INDEX_CANVAS",
 
-➡ AGENTE:
-${agente}
+      aceita_canvas: true,
+      aceita_html: true,
+      aceita_cards: true,
+      aceita_tabelas: true,
+      aceita_graficos: true,
+      aceita_dados: true,
 
-📍 ROTA:
-${url}
+      hashtag,
+      agente_origem: agente,
 
-`);
+      contexto
+    };
+
+    logOtto({
+      requestId,
+      etapa: "chamar_agente_inicio",
+      mensagem: "OTTO Central enviando pergunta para agente final",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      dados: {
+        url,
+        timeout_ms: TIMEOUT_AGENTE_MS,
+        payload: OTTO_LOG_PAYLOAD_AGENTE
+          ? payloadAgente
+          : "[DESATIVADO_POR_OTTO_LOG_PAYLOAD_AGENTE]"
+      }
+    });
 
     const resposta =
     await fetch(
@@ -1314,48 +1803,25 @@ ${url}
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer mercatto_admin_2026"
+          "Authorization": "Bearer mercatto_admin_2026",
+          "X-OTTO-REQUEST-ID": requestId || ""
         },
-        body: JSON.stringify({
-          pergunta,
-          mensagem: pergunta,
-          texto: pergunta,
-
-          telefone: contexto?.telefone || "",
-          numero: contexto?.numero || contexto?.telefone || "",
-          nome: contexto?.nome || "",
-          empresa: contexto?.empresa || "",
-          usuario_id: contexto?.usuario_id || null,
-          usuario: contexto?.usuario || "",
-          email: contexto?.email || "",
-
-          data: contexto?.data || hojeBahiaISO(),
-          hoje: contexto?.hoje || hojeBahiaISO(),
-          timezone: TIMEZONE,
-
-          origem: "OTTO_CENTRAL",
-          interface: contexto?.interface || "OTTO_INDEX_CANVAS",
-
-          aceita_canvas: true,
-          aceita_html: true,
-          aceita_cards: true,
-          aceita_tabelas: true,
-          aceita_graficos: true,
-          aceita_dados: true,
-
-          hashtag,
-          agente_origem: agente,
-
-          contexto
-        })
+        body: JSON.stringify(payloadAgente)
       }
     );
 
     const data =
-    await lerRespostaHTTP(resposta);
+    await lerRespostaHTTP(resposta, {
+      requestId,
+      etapa: "chamar_agente_resposta_http",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint
+    });
 
     if (!resposta.ok) {
-      return {
+      const retornoErro = {
         ok: false,
         status: resposta.status,
         hashtag,
@@ -1369,12 +1835,35 @@ ${url}
           `Erro HTTP ${resposta.status}`,
         data
       };
+
+      logOtto({
+        requestId,
+        etapa: "chamar_agente_erro_http",
+        nivel: "error",
+        mensagem: "Agente retornou HTTP diferente de OK",
+        pergunta,
+        hashtag,
+        agente,
+        endpoint,
+        status: resposta.status,
+        sucesso: false,
+        tempo_ms: tempoMs(inicio),
+        dados: retornoErro
+      });
+
+      return retornoErro;
     }
 
     const normalizada =
-    normalizarRespostaAgente(data);
+    normalizarRespostaAgente(data, {
+      requestId,
+      pergunta,
+      hashtag,
+      agente,
+      endpoint
+    });
 
-    return {
+    const retornoOk = {
       ok: true,
       status: resposta.status,
       hashtag,
@@ -1397,8 +1886,39 @@ ${url}
       data
     };
 
+    logOtto({
+      requestId,
+      etapa: "chamar_agente_fim",
+      mensagem: "Agente respondeu com sucesso",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      status: resposta.status,
+      sucesso: true,
+      tempo_ms: tempoMs(inicio),
+      dados: {
+        resposta_resumo: {
+          tem_resposta: Boolean(retornoOk.resposta),
+          tamanho_resposta: String(retornoOk.resposta || "").length,
+          tem_canvas: Boolean(retornoOk.canvas),
+          tem_dados: Boolean(retornoOk.dados),
+          total_graficos: Array.isArray(retornoOk.graficos) ? retornoOk.graficos.length : 0,
+          tem_tabela: Boolean(retornoOk.tabela),
+          tem_tabelas: Boolean(retornoOk.tabelas),
+          tem_cards: Boolean(retornoOk.cards),
+          tem_html: Boolean(retornoOk.html)
+        },
+        resposta_bruta: OTTO_LOG_RESPOSTA_AGENTE
+          ? data
+          : "[DESATIVADO_POR_OTTO_LOG_RESPOSTA_AGENTE]"
+      }
+    });
+
+    return retornoOk;
+
   } catch (e) {
-    return {
+    const retornoCatch = {
       ok: false,
       hashtag,
       agente,
@@ -1409,10 +1929,32 @@ ${url}
           : e.message
     };
 
+    logOtto({
+      requestId,
+      etapa: "chamar_agente_catch",
+      nivel: "error",
+      mensagem: "Erro ao chamar rota do agente final",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      sucesso: false,
+      tempo_ms: tempoMs(inicio),
+      erro: e,
+      dados: retornoCatch
+    });
+
+    return retornoCatch;
+
   } finally {
     clearTimeout(timer);
   }
 }
+
+// ======================================================
+// RESUMOS PARA BANCO
+// ======================================================
+
 function tamanhoJSON(valor) {
   try {
     return JSON.stringify(valor || {}).length;
@@ -1718,25 +2260,6 @@ function resumirRoteamentoParaBanco(roteamento) {
   };
 }
 
-function montarDadosMinimosMemoria({
-  etapa,
-  pergunta,
-  respostaAgente,
-  roteamento,
-  body,
-  extra
-}) {
-  return {
-    etapa,
-    pergunta: limitarTextoBanco(pergunta || "", 1000),
-    roteamento: resumirRoteamentoParaBanco(roteamento),
-    resposta_agente: resumirRespostaAgenteParaBanco(respostaAgente),
-    origem: body?.origem || body?.interface || null,
-    aceita_canvas: body?.aceita_canvas !== false,
-    aceita_graficos: body?.aceita_graficos !== false,
-    extra: extra || null
-  };
-}
 // ======================================================
 // SALVAR HISTÓRICO
 // ======================================================
@@ -1749,10 +2272,32 @@ async function salvarHistorico({
   endpoint,
   contexto,
   roteamento,
-  resposta_agente
+  resposta_agente,
+  requestId
 }) {
+  const inicio =
+  Date.now();
+
   try {
-    await supabase
+    logOtto({
+      requestId,
+      etapa: "salvar_historico_inicio",
+      mensagem: "Salvando histórico em otto_historico",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      dados: {
+        resposta_tamanho: String(resposta || "").length,
+        contexto,
+        roteamento,
+        resposta_agente_resumo: resumirRespostaAgenteParaBanco(resposta_agente)
+      }
+    });
+
+    const {
+      error
+    } = await supabase
       .from("otto_historico")
       .insert([
         {
@@ -1772,11 +2317,52 @@ async function salvarHistorico({
         }
       ]);
 
+    if (error) {
+      logOtto({
+        requestId,
+        etapa: "salvar_historico_erro_supabase",
+        nivel: "error",
+        mensagem: "Erro Supabase ao salvar histórico",
+        pergunta,
+        hashtag,
+        agente,
+        endpoint,
+        tempo_ms: tempoMs(inicio),
+        dados: {
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          message: error.message
+        }
+      });
+
+      return;
+    }
+
+    logOtto({
+      requestId,
+      etapa: "salvar_historico_fim",
+      mensagem: "Histórico salvo com sucesso",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      tempo_ms: tempoMs(inicio)
+    });
+
   } catch (e) {
-    console.log(
-      "ERRO AO SALVAR HISTÓRICO OTTO:",
-      e.message
-    );
+    logOtto({
+      requestId,
+      etapa: "salvar_historico_catch",
+      nivel: "error",
+      mensagem: "Falha inesperada ao salvar histórico",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      tempo_ms: tempoMs(inicio),
+      erro: e
+    });
   }
 }
 
@@ -1799,9 +2385,32 @@ async function salvarMemoriaOttoPrincipal({
   resposta_agente,
   importante,
   permanente,
-  prioridade
+  prioridade,
+  requestId
 }) {
+  const inicio =
+  Date.now();
+
   try {
+    logOtto({
+      requestId,
+      etapa: "salvar_memoria_inicio",
+      mensagem: "Salvando memória em memoria_otto_principal",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      dados: {
+        origem,
+        tipo,
+        papel,
+        importante,
+        permanente,
+        prioridade,
+        resposta_tamanho: String(resposta || "").length
+      }
+    });
+
     const contextoSeguro =
     contexto && typeof contexto === "object"
       ? contexto
@@ -1916,45 +2525,46 @@ async function salvarMemoriaOttoPrincipal({
       tags: tags || [],
       entidades: {},
 
-dados:
-  dados && typeof dados === "object"
-    ? {
-        etapa: dados.etapa || tipo || null,
-        pergunta: limitarTextoBanco(dados.pergunta || pergunta || "", 1000),
-        resumo: dados.resumo || null,
-        roteamento: resumirRoteamentoParaBanco(
-          dados.roteamento || roteamento
-        ),
-        resposta_agente: resumirRespostaAgenteParaBanco(
-          dados.resposta_agente || resposta_agente
-        ),
-        ok:
-          dados.ok !== undefined
-            ? dados.ok
-            : resposta_agente?.ok === true,
-        status:
-          dados.status ||
-          resposta_agente?.status ||
-          null,
-        extra:
-          dados.extra ||
-          null
-      }
-    : {},
+      dados:
+        dados && typeof dados === "object"
+          ? {
+              etapa: dados.etapa || tipo || null,
+              pergunta: limitarTextoBanco(dados.pergunta || pergunta || "", 1000),
+              resumo: dados.resumo || null,
+              roteamento: resumirRoteamentoParaBanco(
+                dados.roteamento || roteamento
+              ),
+              resposta_agente: resumirRespostaAgenteParaBanco(
+                dados.resposta_agente || resposta_agente
+              ),
+              ok:
+                dados.ok !== undefined
+                  ? dados.ok
+                  : resposta_agente?.ok === true,
+              status:
+                dados.status ||
+                resposta_agente?.status ||
+                null,
+              extra:
+                dados.extra ||
+                null
+            }
+          : {},
 
-contexto: limparContextoParaBanco(contextoSeguro),
+      contexto: limparContextoParaBanco(contextoSeguro),
 
-metadata: {
-  salvo_por: "admin-agente.js",
-  timezone: TIMEZONE,
-  hoje: hojeBahiaISO(),
+      metadata: {
+        salvo_por: "admin-agente.js",
+        timezone: TIMEZONE,
+        hoje: hojeBahiaISO(),
+        request_id: requestId || null,
 
-  roteamento: resumirRoteamentoParaBanco(roteamento),
+        roteamento: resumirRoteamentoParaBanco(roteamento),
 
-  resposta_agente: resumirRespostaAgenteParaBanco(resposta_agente),
+        resposta_agente: resumirRespostaAgenteParaBanco(resposta_agente),
 
-  politica_salvamento: "somente_resumo_sem_payload_bruto"
-},
+        politica_salvamento: "somente_resumo_sem_payload_bruto"
+      },
 
       fonte_tabela: null,
       fonte_id: null,
@@ -1976,17 +2586,78 @@ metadata: {
       .insert([payload]);
 
     if (error) {
-      console.log(
-        "ERRO AO SALVAR MEMÓRIA OTTO PRINCIPAL:",
-        error.message
-      );
+      logOtto({
+        requestId,
+        etapa: "salvar_memoria_erro_supabase",
+        nivel: "error",
+        mensagem: "Erro Supabase ao salvar memória principal",
+        pergunta,
+        hashtag,
+        agente,
+        endpoint,
+        tempo_ms: tempoMs(inicio),
+        dados: {
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          message: error.message,
+          payload_resumo: {
+            origem: payload.origem,
+            agente: payload.agente,
+            hashtag: payload.hashtag,
+            endpoint: payload.endpoint,
+            tipo: payload.tipo,
+            papel: payload.papel,
+            telefone: payload.telefone,
+            numero: payload.numero,
+            usuario_id: payload.usuario_id,
+            empresa: payload.empresa,
+            categoria: payload.categoria,
+            tags: payload.tags,
+            tamanho_conteudo: String(payload.conteudo || "").length,
+            tamanho_resposta: String(payload.resposta || "").length
+          }
+        }
+      });
+
+      return;
     }
 
+    logOtto({
+      requestId,
+      etapa: "salvar_memoria_fim",
+      mensagem: "Memória salva com sucesso",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      tempo_ms: tempoMs(inicio),
+      dados: {
+        tipo,
+        papel,
+        categoria,
+        sentimento,
+        tags,
+        empresa,
+        usuario_id,
+        telefone,
+        numero
+      }
+    });
+
   } catch (e) {
-    console.log(
-      "FALHA AO SALVAR MEMÓRIA OTTO PRINCIPAL:",
-      e.message
-    );
+    logOtto({
+      requestId,
+      etapa: "salvar_memoria_catch",
+      nivel: "error",
+      mensagem: "Falha inesperada ao salvar memória principal",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      tempo_ms: tempoMs(inicio),
+      erro: e
+    });
   }
 }
 
@@ -1995,19 +2666,47 @@ metadata: {
 // ======================================================
 
 module.exports = async function handler(req, res) {
+  const requestId =
+  criarRequestId();
+
+  const inicioGeral =
+  Date.now();
+
   let perguntaParaErro = "";
   let contextoParaErro = {};
 
   try {
+    logOtto({
+      requestId,
+      etapa: "request_inicio",
+      mensagem: "Requisição recebida no admin-agente",
+      dados: {
+        method: req.method,
+        url: req.url,
+        headers: limparParaLog(req.headers),
+        query: req.query || null
+      }
+    });
+
     // ====================================================
     // CORS
     // ====================================================
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-OTTO-REQUEST-ID");
+    res.setHeader("X-OTTO-REQUEST-ID", requestId);
 
     if (req.method === "OPTIONS") {
+      logOtto({
+        requestId,
+        etapa: "request_options",
+        mensagem: "Respondendo preflight OPTIONS",
+        status: 200,
+        sucesso: true,
+        tempo_ms: tempoMs(inicioGeral)
+      });
+
       return res.status(200).end();
     }
 
@@ -2016,9 +2715,23 @@ module.exports = async function handler(req, res) {
     // ====================================================
 
     if (req.method !== "POST") {
+      logOtto({
+        requestId,
+        etapa: "metodo_invalido",
+        nivel: "warn",
+        mensagem: "Método inválido recebido",
+        status: 405,
+        sucesso: false,
+        dados: {
+          method: req.method
+        },
+        tempo_ms: tempoMs(inicioGeral)
+      });
+
       return res.status(405).json({
         ok: false,
-        erro: "Método não permitido. Use POST."
+        erro: "Método não permitido. Use POST.",
+        request_id: requestId
       });
     }
 
@@ -2028,6 +2741,18 @@ module.exports = async function handler(req, res) {
 
     const body =
     parseBody(req);
+
+    logOtto({
+      requestId,
+      etapa: "body_recebido",
+      mensagem: "Body interpretado com sucesso",
+      dados: {
+        body: OTTO_LOG_BODY
+          ? body
+          : "[DESATIVADO_POR_OTTO_LOG_BODY]",
+        body_keys: Object.keys(body || {})
+      }
+    });
 
     const pergunta =
       body?.pergunta ||
@@ -2039,9 +2764,26 @@ module.exports = async function handler(req, res) {
     pergunta;
 
     if (!String(pergunta).trim()) {
+      logOtto({
+        requestId,
+        etapa: "pergunta_vazia",
+        nivel: "warn",
+        mensagem: "Pergunta não informada",
+        status: 400,
+        sucesso: false,
+        dados: {
+          body_keys: Object.keys(body || {}),
+          body: OTTO_LOG_BODY
+            ? body
+            : "[DESATIVADO_POR_OTTO_LOG_BODY]"
+        },
+        tempo_ms: tempoMs(inicioGeral)
+      });
+
       return res.status(400).json({
         ok: false,
-        erro: "Pergunta não informada."
+        erro: "Pergunta não informada.",
+        request_id: requestId
       });
     }
 
@@ -2132,7 +2874,10 @@ module.exports = async function handler(req, res) {
       tema_atual:
         body?.tema_atual ||
         contextoRecebido?.tema_atual ||
-        null
+        null,
+
+      request_id:
+        requestId
     };
 
     contextoParaErro =
@@ -2141,30 +2886,42 @@ module.exports = async function handler(req, res) {
     const origin =
     montarOrigin(req);
 
+    logOtto({
+      requestId,
+      etapa: "contexto_montado",
+      mensagem: "Contexto final montado",
+      pergunta,
+      dados: {
+        origin,
+        contexto
+      }
+    });
+
     // ====================================================
     // SALVA ENTRADA NA MEMÓRIA
     // ====================================================
 
-await salvarMemoriaOttoPrincipal({
-  origem: "ADMIN_AGENTE",
-  agente: "OTTO_CENTRAL",
-  hashtag: null,
-  endpoint: "/api/admin-agente",
-  tipo: "entrada_usuario",
-  papel: "usuario",
-  pergunta,
-  resposta: null,
-  contexto,
-  dados: {
-    etapa: "pergunta_recebida",
-    pergunta: limitarTextoBanco(pergunta, 1000),
-    origem: body?.origem || body?.interface || "OTTO",
-    aceita_canvas: body?.aceita_canvas !== false,
-    aceita_graficos: body?.aceita_graficos !== false
-  },
-  importante: false,
-  permanente: false
-});
+    await salvarMemoriaOttoPrincipal({
+      origem: "ADMIN_AGENTE",
+      agente: "OTTO_CENTRAL",
+      hashtag: null,
+      endpoint: "/api/admin-agente",
+      tipo: "entrada_usuario",
+      papel: "usuario",
+      pergunta,
+      resposta: null,
+      contexto,
+      dados: {
+        etapa: "pergunta_recebida",
+        pergunta: limitarTextoBanco(pergunta, 1000),
+        origem: body?.origem || body?.interface || "OTTO",
+        aceita_canvas: body?.aceita_canvas !== false,
+        aceita_graficos: body?.aceita_graficos !== false
+      },
+      importante: false,
+      permanente: false,
+      requestId
+    });
 
     // ====================================================
     // BUSCA MEMÓRIA CONTEXTUAL ANTES DE ROTEAR
@@ -2174,42 +2931,18 @@ await salvarMemoriaOttoPrincipal({
     await buscarMemoriaContextual({
       pergunta,
       contexto,
-      limite: LIMITE_MEMORIA_CONTEXTO
+      limite: LIMITE_MEMORIA_CONTEXTO,
+      requestId
     });
-
-    console.log(`
-
-🧠 OTTO MEMÓRIA CONTEXTUAL
-
-❓ PERGUNTA:
-${pergunta}
-
-🏷️ ÚLTIMA HASHTAG:
-${memoriaContextual?.ultima_hashtag || "nenhuma"}
-
-➡ ÚLTIMO AGENTE:
-${memoriaContextual?.ultimo_agente || "nenhum"}
-
-📍 ÚLTIMO ENDPOINT:
-${memoriaContextual?.ultimo_endpoint || "nenhum"}
-
-📌 ÚLTIMA CATEGORIA:
-${memoriaContextual?.ultima_categoria || "nenhuma"}
-
-🏢 ÚLTIMA EMPRESA:
-${memoriaContextual?.ultima_empresa || "nenhuma"}
-
-📚 MEMÓRIAS USADAS:
-${memoriaContextual?.itens?.length || 0}
-
-`);
 
     // ====================================================
     // BUSCA PROMPT DO SUPABASE
     // ====================================================
 
     const promptComando =
-    await buscarPromptDirecionamento();
+    await buscarPromptDirecionamento({
+      requestId
+    });
 
     // ====================================================
     // ESCOLHE HASHTAG COM MEMÓRIA
@@ -2229,7 +2962,20 @@ ${memoriaContextual?.itens?.length || 0}
           ultima_empresa: memoriaContextual?.ultima_empresa || null
         }
       },
-      memoriaContextual
+      memoriaContextual,
+      requestId
+    });
+
+    logOtto({
+      requestId,
+      etapa: "hashtag_escolhida",
+      mensagem: "Hashtag escolhida com sucesso",
+      pergunta,
+      hashtag,
+      dados: {
+        hashtag,
+        pergunta
+      }
     });
 
     // ====================================================
@@ -2240,6 +2986,17 @@ ${memoriaContextual?.itens?.length || 0}
     hashtagParaEndpoint(hashtag);
 
     if (!endpoint) {
+      logOtto({
+        requestId,
+        etapa: "endpoint_invalido",
+        nivel: "error",
+        mensagem: "Hashtag não gerou endpoint válido",
+        pergunta,
+        hashtag,
+        status: 400,
+        sucesso: false
+      });
+
       await salvarMemoriaOttoPrincipal({
         origem: "ADMIN_AGENTE",
         agente: "OTTO_CENTRAL",
@@ -2256,13 +3013,15 @@ ${memoriaContextual?.itens?.length || 0}
         },
         importante: true,
         permanente: false,
-        prioridade: "alta"
+        prioridade: "alta",
+        requestId
       });
 
       return res.status(400).json({
         ok: false,
         erro: "Hashtag inválida retornada pelo roteador.",
-        hashtag
+        hashtag,
+        request_id: requestId
       });
     }
 
@@ -2300,31 +3059,48 @@ ${memoriaContextual?.itens?.length || 0}
       }
     };
 
+    logOtto({
+      requestId,
+      etapa: "roteamento_definido",
+      mensagem: "Roteamento final definido",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      dados: {
+        origin,
+        url_final: `${origin}${endpoint}`,
+        roteamento
+      }
+    });
+
     // ====================================================
     // SALVA ROTEAMENTO
     // ====================================================
 
-await salvarMemoriaOttoPrincipal({
-  origem: "ADMIN_AGENTE",
-  agente: "OTTO_CENTRAL",
-  hashtag,
-  endpoint,
-  tipo: "roteamento",
-  papel: "sistema",
-  pergunta,
-  resposta: `Pergunta direcionada para ${agente} pela hashtag ${hashtag}.`,
-  contexto: {
-    ...limparContextoParaBanco(contextoComMemoria),
-    origin
-  },
-  dados: {
-    etapa: "roteamento_definido",
-    roteamento: resumirRoteamentoParaBanco(roteamento)
-  },
-  roteamento: resumirRoteamentoParaBanco(roteamento),
-  importante: false,
-  permanente: false
-});
+    await salvarMemoriaOttoPrincipal({
+      origem: "ADMIN_AGENTE",
+      agente: "OTTO_CENTRAL",
+      hashtag,
+      endpoint,
+      tipo: "roteamento",
+      papel: "sistema",
+      pergunta,
+      resposta: `Pergunta direcionada para ${agente} pela hashtag ${hashtag}.`,
+      contexto: {
+        ...limparContextoParaBanco(contextoComMemoria),
+        origin,
+        request_id: requestId
+      },
+      dados: {
+        etapa: "roteamento_definido",
+        roteamento: resumirRoteamentoParaBanco(roteamento)
+      },
+      roteamento: resumirRoteamentoParaBanco(roteamento),
+      importante: false,
+      permanente: false,
+      requestId
+    });
 
     // ====================================================
     // CHAMA AGENTE FINAL
@@ -2337,7 +3113,8 @@ await salvarMemoriaOttoPrincipal({
       origin,
       hashtag,
       endpoint,
-      agente
+      agente,
+      requestId
     });
 
     const respostaFinal =
@@ -2345,99 +3122,131 @@ await salvarMemoriaOttoPrincipal({
       respostaAgente?.erro ||
       "Sem resposta do agente.";
 
+    logOtto({
+      requestId,
+      etapa: "resposta_agente_recebida_no_handler",
+      mensagem: "Handler recebeu a resposta final do agente",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      status: respostaAgente?.status || null,
+      sucesso: respostaAgente?.ok === true,
+      dados: {
+        ok: respostaAgente?.ok === true,
+        erro: respostaAgente?.erro || null,
+        resposta_final_tamanho: String(respostaFinal || "").length,
+        tem_canvas: Boolean(respostaAgente?.canvas),
+        tem_dados: Boolean(respostaAgente?.dados),
+        total_graficos: Array.isArray(respostaAgente?.graficos)
+          ? respostaAgente.graficos.length
+          : 0,
+        resposta_agente: OTTO_LOG_RESPOSTA_AGENTE
+          ? respostaAgente
+          : "[DESATIVADO_POR_OTTO_LOG_RESPOSTA_AGENTE]"
+      }
+    });
+
     // ====================================================
     // HISTÓRICO
     // ====================================================
 
-await salvarHistorico({
-  pergunta,
-  resposta: respostaFinal,
-  agente,
-  hashtag,
-  endpoint,
-  contexto: {
-    ...limparContextoParaBanco(contextoComMemoria),
-    origin
-  },
-  roteamento: resumirRoteamentoParaBanco(roteamento),
-  resposta_agente: resumirRespostaAgenteParaBanco(respostaAgente)
-});
+    await salvarHistorico({
+      pergunta,
+      resposta: respostaFinal,
+      agente,
+      hashtag,
+      endpoint,
+      contexto: {
+        ...limparContextoParaBanco(contextoComMemoria),
+        origin,
+        request_id: requestId
+      },
+      roteamento: resumirRoteamentoParaBanco(roteamento),
+      resposta_agente: resumirRespostaAgenteParaBanco(respostaAgente),
+      requestId
+    });
 
     // ====================================================
     // SALVA RESPOSTA FINAL
     // ====================================================
 
-await salvarMemoriaOttoPrincipal({
-  origem: "ADMIN_AGENTE",
-  agente,
-  hashtag,
-  endpoint,
-  tipo:
-    respostaAgente?.ok === true
-      ? "resposta_final"
-      : "erro_agente",
-  papel: "assistente",
-  pergunta,
-  resposta: limitarTextoBanco(respostaFinal, 8000),
-  contexto: {
-    ...limparContextoParaBanco(contextoComMemoria),
-    origin
-  },
-  dados: {
-    etapa: "resposta_final",
-    pergunta: limitarTextoBanco(pergunta, 1000),
-    ok: respostaAgente?.ok === true,
-    status: respostaAgente?.status || null,
+    await salvarMemoriaOttoPrincipal({
+      origem: "ADMIN_AGENTE",
+      agente,
+      hashtag,
+      endpoint,
+      tipo:
+        respostaAgente?.ok === true
+          ? "resposta_final"
+          : "erro_agente",
+      papel: "assistente",
+      pergunta,
+      resposta: limitarTextoBanco(respostaFinal, 8000),
+      contexto: {
+        ...limparContextoParaBanco(contextoComMemoria),
+        origin,
+        request_id: requestId
+      },
+      dados: {
+        etapa: "resposta_final",
+        pergunta: limitarTextoBanco(pergunta, 1000),
+        ok: respostaAgente?.ok === true,
+        status: respostaAgente?.status || null,
 
-    resposta_resumo: limitarTextoBanco(
-      respostaAgente?.respostaTexto ||
-      respostaAgente?.resposta ||
-      respostaFinal,
-      6000
-    ),
+        resposta_resumo: limitarTextoBanco(
+          respostaAgente?.respostaTexto ||
+          respostaAgente?.resposta ||
+          respostaFinal,
+          6000
+        ),
 
-    fala_resumo: limitarTextoBanco(
-      respostaAgente?.fala ||
-      respostaAgente?.respostaTexto ||
-      respostaFinal,
-      2500
-    ),
+        fala_resumo: limitarTextoBanco(
+          respostaAgente?.fala ||
+          respostaAgente?.respostaTexto ||
+          respostaFinal,
+          2500
+        ),
 
-    visual: {
-      tem_canvas: Boolean(respostaAgente?.canvas),
-      tem_graficos: Array.isArray(respostaAgente?.graficos)
-        ? respostaAgente.graficos.length > 0
-        : Boolean(respostaAgente?.graficos),
-      tem_tabela: Boolean(respostaAgente?.tabela),
-      tem_tabelas: Boolean(respostaAgente?.tabelas),
-      tem_cards: Boolean(respostaAgente?.cards),
-      tem_html: Boolean(respostaAgente?.html)
-    },
+        visual: {
+          tem_canvas: Boolean(respostaAgente?.canvas),
+          tem_graficos: Array.isArray(respostaAgente?.graficos)
+            ? respostaAgente.graficos.length > 0
+            : Boolean(respostaAgente?.graficos),
+          tem_tabela: Boolean(respostaAgente?.tabela),
+          tem_tabelas: Boolean(respostaAgente?.tabelas),
+          tem_cards: Boolean(respostaAgente?.cards),
+          tem_html: Boolean(respostaAgente?.html)
+        },
 
-    canvas_resumo: resumirCanvasParaBanco(respostaAgente?.canvas),
-    graficos_resumo: resumirGraficosParaBanco(respostaAgente?.graficos),
-    tabela_resumo: resumirTabelaParaBanco(respostaAgente?.tabela),
-    tabelas_resumo: resumirTabelasParaBanco(respostaAgente?.tabelas),
-    dados_resumo: resumirDadosParaBanco(respostaAgente?.dados),
+        canvas_resumo: resumirCanvasParaBanco(respostaAgente?.canvas),
+        graficos_resumo: resumirGraficosParaBanco(respostaAgente?.graficos),
+        tabela_resumo: resumirTabelaParaBanco(respostaAgente?.tabela),
+        tabelas_resumo: resumirTabelasParaBanco(respostaAgente?.tabelas),
+        dados_resumo: resumirDadosParaBanco(respostaAgente?.dados),
 
-    tamanho_original_aproximado: tamanhoJSON(respostaAgente)
-  },
-  roteamento: resumirRoteamentoParaBanco(roteamento),
-  resposta_agente: resumirRespostaAgenteParaBanco(respostaAgente),
-  importante: respostaAgente?.ok !== true,
-  permanente: false,
-  prioridade:
-    respostaAgente?.ok === true
-      ? "normal"
-      : "alta"
-});
+        tamanho_original_aproximado: tamanhoJSON(respostaAgente)
+      },
+      roteamento: resumirRoteamentoParaBanco(roteamento),
+      resposta_agente: resumirRespostaAgenteParaBanco(respostaAgente),
+      importante: respostaAgente?.ok !== true,
+      permanente: false,
+      prioridade:
+        respostaAgente?.ok === true
+          ? "normal"
+          : "alta",
+      requestId
+    });
+
     // ====================================================
     // RETORNO PARA O INDEX
     // ====================================================
 
-    return res.status(200).json({
+    const retorno = {
       ok: respostaAgente.ok === true,
       sucesso: respostaAgente.ok === true,
+
+      request_id: requestId,
 
       pergunta,
 
@@ -2528,13 +3337,54 @@ await salvarMemoriaOttoPrincipal({
       timezone: TIMEZONE,
       timestamp: new Date().toISOString(),
       agora_bahia: agoraBahia().toISOString()
+    };
+
+    logOtto({
+      requestId,
+      etapa: "request_fim",
+      mensagem: "Requisição finalizada com sucesso",
+      pergunta,
+      hashtag,
+      agente,
+      endpoint,
+      status: 200,
+      sucesso: respostaAgente.ok === true,
+      tempo_ms: tempoMs(inicioGeral),
+      dados: {
+        retorno_resumo: {
+          ok: retorno.ok,
+          sucesso: retorno.sucesso,
+          resposta_tamanho: String(retorno.resposta || "").length,
+          tem_canvas: Boolean(retorno.canvas),
+          tem_dados: Boolean(retorno.dados),
+          total_graficos: Array.isArray(retorno.graficos)
+            ? retorno.graficos.length
+            : 0,
+          tem_tabela: Boolean(retorno.tabela),
+          tem_tabelas: Boolean(retorno.tabelas),
+          tem_cards: Boolean(retorno.cards),
+          tem_html: Boolean(retorno.html)
+        }
+      }
     });
 
+    return res.status(200).json(retorno);
+
   } catch (err) {
-    console.log(
-      "ERRO OTTO CENTRAL:",
-      err
-    );
+    logOtto({
+      requestId,
+      etapa: "catch_global",
+      nivel: "error",
+      mensagem: "Erro global no OTTO Central",
+      pergunta: perguntaParaErro,
+      status: 500,
+      sucesso: false,
+      tempo_ms: tempoMs(inicioGeral),
+      erro: err,
+      dados: {
+        contextoParaErro
+      }
+    });
 
     await salvarMemoriaOttoPrincipal({
       origem: "ADMIN_AGENTE",
@@ -2545,20 +3395,26 @@ await salvarMemoriaOttoPrincipal({
       papel: "sistema",
       pergunta: perguntaParaErro,
       resposta: err.message || "Erro interno no admin-agente.",
-      contexto: contextoParaErro,
+      contexto: {
+        ...contextoParaErro,
+        request_id: requestId
+      },
       dados: {
         etapa: "catch_global",
         erro: err.message,
-        stack: err.stack || null
+        stack: err.stack || null,
+        request_id: requestId
       },
       importante: true,
       permanente: false,
-      prioridade: "alta"
+      prioridade: "alta",
+      requestId
     });
 
     return res.status(500).json({
       ok: false,
       erro: true,
+      request_id: requestId,
       mensagem: err.message,
       resposta: err.message,
       respostaTexto: err.message,
