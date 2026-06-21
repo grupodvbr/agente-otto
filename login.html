@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+
+<meta charset="UTF-8">
+
+<!-- SEM ZOOM -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<title>OTTO</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:Inter;
+}
+
+/* ===== BODY ===== */
+body{
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#020617;
+  overflow:hidden;
+  position:relative;
+}
+
+.bg{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+}
+
+/* ORBS */
+.orb{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(80px);
+  opacity:.35;
+  animation:float 14s infinite alternate ease-in-out;
+}
+
+.orb1{
+  width:420px;
+  height:420px;
+  background:#3b82f6;
+  top:-120px;
+  left:-100px;
+}
+
+.orb2{
+  width:350px;
+  height:350px;
+  background:#6366f1;
+  bottom:-120px;
+  right:-80px;
+  animation-duration:18s;
+}
+
+.orb3{
+  width:260px;
+  height:260px;
+  background:#0ea5e9;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  animation-duration:20s;
+}
+
+@keyframes float{
+  0%{
+    transform:translate(0,0) scale(1);
+  }
+  100%{
+    transform:translate(40px,50px) scale(1.25);
+  }
+}
+
+/* GRID */
+.grid{
+  position:absolute;
+  inset:0;
+
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+
+  background-size:40px 40px;
+
+  mask-image:radial-gradient(circle at center, black 30%, transparent 85%);
+}
+
+/* PARTÍCULAS */
+.particles span{
+  position:absolute;
+  width:2px;
+  height:2px;
+  background:#fff;
+  border-radius:50%;
+  opacity:.4;
+  animation:particles linear infinite;
+}
+
+@keyframes particles{
+  from{
+    transform:translateY(0);
+    opacity:0;
+  }
+  20%{
+    opacity:.5;
+  }
+  to{
+    transform:translateY(-1000px);
+    opacity:0;
+  }
+}
+
+/* ===== CARD ===== */
+.card{
+  position:relative;
+  z-index:2;
+
+  width:360px;
+  padding:40px 32px;
+
+  border-radius:24px;
+
+  background:rgba(15,23,42,.72);
+
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+
+  border:1px solid rgba(255,255,255,.05);
+
+  box-shadow:
+    0 30px 70px rgba(0,0,0,.7),
+    inset 0 0 0 1px rgba(255,255,255,.03);
+
+  text-align:center;
+
+  animation:enter .6s ease;
+}
+
+.card::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:24px;
+
+  background:
+    linear-gradient(
+      140deg,
+      rgba(255,255,255,.05),
+      transparent,
+      rgba(255,255,255,.02)
+    );
+
+  pointer-events:none;
+}
+
+@keyframes enter{
+  from{
+    opacity:0;
+    transform:translateY(40px) scale(.96);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0) scale(1);
+  }
+}
+
+/* ===== LOGO ===== */
+.logo{
+  font-size:34px;
+  font-weight:900;
+  letter-spacing:2px;
+
+  background:linear-gradient(90deg,#3b82f6,#818cf8);
+
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+
+  margin-bottom:8px;
+}
+
+.sub{
+  color:#94a3b8;
+  font-size:13px;
+  margin-bottom:30px;
+}
+
+/* ===== INPUT ===== */
+.input{
+  margin-bottom:14px;
+  position:relative;
+}
+
+input{
+  width:100%;
+  padding:15px;
+
+  border-radius:14px;
+  border:none;
+
+  background:#111827;
+  color:#fff;
+
+  font-size:14px;
+
+  transition:.25s;
+
+  border:1px solid transparent;
+}
+
+input:focus{
+  outline:none;
+
+  background:#0f172a;
+
+  border:1px solid rgba(59,130,246,.5);
+
+  box-shadow:
+    0 0 0 4px rgba(59,130,246,.08),
+    0 10px 30px rgba(59,130,246,.08);
+}
+
+/* ===== BOTÃO ===== */
+button{
+  width:100%;
+  padding:15px;
+
+  margin-top:10px;
+
+  border:none;
+  border-radius:14px;
+
+  font-weight:700;
+  color:#fff;
+
+  background:linear-gradient(135deg,#2563eb,#4f46e5);
+
+  cursor:pointer;
+  transition:.25s;
+
+  position:relative;
+  overflow:hidden;
+}
+
+button:hover{
+  transform:translateY(-2px);
+
+  box-shadow:
+    0 12px 25px rgba(37,99,235,.25);
+}
+
+button::before{
+  content:'';
+
+  position:absolute;
+  top:0;
+  left:-120%;
+
+  width:80%;
+  height:100%;
+
+  background:linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,.35),
+    transparent
+  );
+
+  transform:skewX(-25deg);
+}
+
+button:hover::before{
+  animation:shine .8s ease;
+}
+
+@keyframes shine{
+  100%{
+    left:130%;
+  }
+}
+
+/* ===== LOADING ===== */
+.loading{
+  display:none;
+  margin-top:12px;
+  font-size:13px;
+  color:#94a3b8;
+}
+
+/* ===== ERRO ===== */
+.erro{
+  margin-top:10px;
+  font-size:13px;
+  color:#ef4444;
+}
+
+/* ===== RESPONSIVO ===== */
+@media(max-width:480px){
+
+  .card{
+    width:92%;
+    padding:35px 24px;
+  }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- FUNDO -->
+<div class="bg">
+
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+
+  <div class="grid"></div>
+
+  <div class="particles" id="particles"></div>
+
+</div>
+
+<!-- CARD -->
+<div class="card">
+
+  <div class="logo">OTTO</div>
+
+  <div class="sub">
+    Sistema inteligente
+  </div>
+
+  <div class="input">
+    <input id="usuario" placeholder="Usuário" autofocus>
+  </div>
+
+  <div class="input">
+    <input
+      id="senha"
+      type="password"
+      placeholder="Senha"
+      onkeydown="if(event.key==='Enter') login()"
+    >
+  </div>
+
+  <button id="btn" onclick="login()">
+    Entrar
+  </button>
+
+  <div class="loading" id="loading">
+    Verificando acesso...
+  </div>
+
+  <div class="erro" id="erro"></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/* ===== PARTICLES ===== */
+const particles = document.getElementById("particles");
+
+for(let i=0;i<45;i++){
+
+  const span = document.createElement("span");
+
+  span.style.left = Math.random()*100+"%";
+  span.style.top = Math.random()*100+"%";
+
+  span.style.animationDuration =
+    (6 + Math.random()*10)+"s";
+
+  span.style.animationDelay =
+    Math.random()*5+"s";
+
+  particles.appendChild(span);
+
+}
+
+/* ===== SUPABASE ===== */
+const supabaseClient = supabase.createClient(
+  "https://dxkszikemntfusfyrzos.supabase.co",
+  "sb_publishable_NNFvdfSXgOdGGVcSbphbjQ_brC3_9ed"
+);
+
+function getRedirectUrl(){
+
+  const params = new URLSearchParams(window.location.search);
+  const redirect = params.get("redirect");
+
+  if(!redirect){
+    return "index.html";
+  }
+
+  try{
+
+    const urlLimpa = decodeURIComponent(redirect);
+
+    if(
+      urlLimpa.startsWith("http://") ||
+      urlLimpa.startsWith("https://") ||
+      urlLimpa.startsWith("//")
+    ){
+      return "index.html";
+    }
+
+    return urlLimpa;
+
+  }catch(e){
+
+    return "index.html";
+
+  }
+
+}
+
+async function login(){
+
+  const usuario = document
+    .getElementById("usuario")
+    .value
+    .trim()
+    .toUpperCase();
+
+  const senha = document
+    .getElementById("senha")
+    .value
+    .trim();
+
+  const erro = document.getElementById("erro");
+  const loading = document.getElementById("loading");
+  const btn = document.getElementById("btn");
+
+  erro.innerText = "";
+
+  if(!usuario || !senha){
+
+    erro.innerText =
+      "Informe usuário e senha";
+
+    return;
+  }
+
+  loading.style.display = "block";
+
+  btn.innerText = "Entrando...";
+  btn.disabled = true;
+
+  try{
+
+    const { data, error } = await supabaseClient
+      .from("usuarios_do_sistema")
+.select(`
+  id,
+  usuario,
+  nome,
+  email,
+  telefone,
+  empresa,
+  setor,
+  cargo,
+  nivel_acesso,
+  links,
+  ativo,
+  foto_url,
+  agente
+`)
+      .eq("usuario", usuario)
+      .eq("senha", senha)
+      .eq("ativo", true)
+      .maybeSingle();
+
+    if(error || !data){
+      throw new Error(
+        "Usuário ou senha inválidos"
+      );
+    }
+
+    localStorage.setItem(
+      "usuarioLogado",
+      JSON.stringify({
+
+        id:data.id,
+        usuario:data.usuario,
+        nome:data.nome,
+        email:data.email,
+        telefone:data.telefone,
+        empresa:data.empresa,
+        setor:data.setor,
+        cargo:data.cargo,
+        nivel_acesso:data.nivel_acesso,
+        links:data.links,
+        ativo:data.ativo,
+        foto_url:data.foto_url,
+        agente:data.agente,
+        login_em:new Date().toISOString()
+
+      })
+    );
+
+    await supabaseClient
+      .from("usuarios_do_sistema")
+      .update({
+        ultimo_login:new Date().toISOString()
+      })
+      .eq("id", data.id);
+
+    document.body.style.transition = ".4s";
+    document.body.style.opacity = "0";
+
+    setTimeout(()=>{
+
+      const paginaAnterior =
+        document.referrer;
+
+      if(
+        paginaAnterior &&
+        paginaAnterior !== window.location.href
+      ){
+
+        location.href = paginaAnterior;
+
+      }else{
+
+        location.href = "index.html";
+
+      }
+
+    },400);
+
+  }catch(err){
+
+    erro.innerText = err.message;
+
+  }finally{
+
+    loading.style.display = "none";
+
+    btn.innerText = "Entrar";
+    btn.disabled = false;
+
+  }
+
+}
+
+window.login = login;
+</script>
+
+</body>
+</html>
